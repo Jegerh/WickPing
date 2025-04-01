@@ -1,0 +1,43 @@
+name: Deploy to Elastic Beanstalk
+on:
+  push:
+    branches: 
+      - main
+      - development
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v1
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: us-east-1
+
+      - name: Set environment based on branch
+        run: |
+          if [[ ${{ github.ref }} == 'refs/heads/main' ]]; then
+            echo "EB_ENVIRONMENT=production" >> $GITHUB_ENV
+            echo "REACT_APP_API_URL=https://rms.riaa.com/api/v2" > frontend/.env
+          elif [[ ${{ github.ref }} == 'refs/heads/development' ]]; then
+            echo "EB_ENVIRONMENT=development" >> $GITHUB_ENV
+            echo "REACT_APP_API_URL=https://dev.rms.riaa.com/api/v2" > frontend/.env
+          fi
+
+      - name: Generate deployment package
+        run: zip -r deploy.zip . -x "vendor/*" "node_modules/*" ".git/*" "frontend/node_modules/*"
+
+      - name: Deploy to Beanstalk
+        uses: einaregilsson/beanstalk-deploy@v21
+        with:
+          aws_access_key: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws_secret_key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          application_name: riaa-management-system
+          environment_name: ${{ env.EB_ENVIRONMENT }}
+          region: us-east-1
+          version_label: ${{ github.sha }}
+          deployment_package: deploy.zip
