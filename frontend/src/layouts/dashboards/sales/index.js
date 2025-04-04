@@ -1,18 +1,3 @@
-/**
-=========================================================
-* Material Dashboard 2 PRO React - v2.1.0
-=========================================================
-
-* Product Page: https://www.creative-tim.com/product/material-dashboard-pro-react
-* Copyright 2022 Creative Tim (https://www.creative-tim.com)
-
-Coded by www.creative-tim.com
-
- =========================================================
-
-* The above copyright notice and this permission notice shall be included in all copies or substantial portions of the Software.
-*/
-
 import { useState } from "react";
 
 // @mui material components
@@ -22,6 +7,8 @@ import MenuItem from "@mui/material/MenuItem";
 import Tooltip from "@mui/material/Tooltip";
 import Icon from "@mui/material/Icon";
 import Card from "@mui/material/Card";
+import Tabs from "@mui/material/Tabs";
+import Tab from "@mui/material/Tab";
 
 // Material Dashboard 2 PRO React components
 import MDBox from "components/MDBox";
@@ -34,49 +21,30 @@ import DashboardLayout from "examples/LayoutContainers/DashboardLayout";
 import DashboardNavbar from "examples/Navbars/DashboardNavbar";
 import Footer from "examples/Footer";
 import DefaultStatisticsCard from "examples/Cards/StatisticsCards/DefaultStatisticsCard";
-import DefaultLineChart from "examples/Charts/LineCharts/DefaultLineChart";
-import HorizontalBarChart from "examples/Charts/BarCharts/HorizontalBarChart";
-import SalesTable from "examples/Tables/SalesTable";
 import DataTable from "examples/Tables/DataTable";
 
-// Sales dashboard components
-import ChannelsChart from "layouts/dashboards/sales/components/ChannelsChart";
+// Import new components for alert creation
+import AlertBuilder from "components/AlertBuilder";
+import RecentAlertsList from "components/RecentAlertsList";
 
-// Data
-import defaultLineChartData from "layouts/dashboards/sales/data/defaultLineChartData";
-import horizontalBarChartData from "layouts/dashboards/sales/data/horizontalBarChartData";
-import salesTableData from "layouts/dashboards/sales/data/salesTableData";
-import dataTableData from "layouts/dashboards/sales/data/dataTableData";
+function Alerts() {
+  const [tabValue, setTabValue] = useState(0);
+  const [timeframeValue, setTimeframeValue] = useState("Last 24 hours");
+  const [timeframeDropdown, setTimeframeDropdown] = useState(null);
 
-function Sales() {
-  // DefaultStatisticsCard state for the dropdown value
-  const [salesDropdownValue, setSalesDropdownValue] = useState("6 May - 7 May");
-  const [customersDropdownValue, setCustomersDropdownValue] = useState("6 May - 7 May");
-  const [revenueDropdownValue, setRevenueDropdownValue] = useState("6 May - 7 May");
-
-  // DefaultStatisticsCard state for the dropdown action
-  const [salesDropdown, setSalesDropdown] = useState(null);
-  const [customersDropdown, setCustomersDropdown] = useState(null);
-  const [revenueDropdown, setRevenueDropdown] = useState(null);
-
-  // DefaultStatisticsCard handler for the dropdown action
-  const openSalesDropdown = ({ currentTarget }) => setSalesDropdown(currentTarget);
-  const closeSalesDropdown = ({ currentTarget }) => {
-    setSalesDropdown(null);
-    setSalesDropdownValue(currentTarget.innerText || salesDropdownValue);
+  // Handlers for tabs
+  const handleTabChange = (event, newValue) => {
+    setTabValue(newValue);
   };
-  const openCustomersDropdown = ({ currentTarget }) => setCustomersDropdown(currentTarget);
-  const closeCustomersDropdown = ({ currentTarget }) => {
-    setCustomersDropdown(null);
-    setCustomersDropdownValue(currentTarget.innerText || salesDropdownValue);
-  };
-  const openRevenueDropdown = ({ currentTarget }) => setRevenueDropdown(currentTarget);
-  const closeRevenueDropdown = ({ currentTarget }) => {
-    setRevenueDropdown(null);
-    setRevenueDropdownValue(currentTarget.innerText || salesDropdownValue);
+  
+  // Dropdown handlers
+  const openTimeframeDropdown = ({ currentTarget }) => setTimeframeDropdown(currentTarget);
+  const closeTimeframeDropdown = ({ currentTarget }) => {
+    setTimeframeDropdown(null);
+    setTimeframeValue(currentTarget.innerText || timeframeValue);
   };
 
-  // Dropdown menu template for the DefaultStatisticsCard
+  // Dropdown menu template
   const renderMenu = (state, close) => (
     <Menu
       anchorEl={state}
@@ -86,8 +54,8 @@ function Sales() {
       keepMounted
       disableAutoFocusItem
     >
+      <MenuItem onClick={close}>Last 24 hours</MenuItem>
       <MenuItem onClick={close}>Last 7 days</MenuItem>
-      <MenuItem onClick={close}>Last week</MenuItem>
       <MenuItem onClick={close}>Last 30 days</MenuItem>
     </Menu>
   );
@@ -96,126 +64,168 @@ function Sales() {
     <DashboardLayout>
       <DashboardNavbar />
       <MDBox py={3}>
+        {/* Stats Cards */}
         <MDBox mb={3}>
           <Grid container spacing={3}>
             <Grid item xs={12} sm={4}>
               <DefaultStatisticsCard
-                title="sales"
-                count="$230,220"
+                title="Active Alerts"
+                count="8"
                 percentage={{
                   color: "success",
-                  value: "+55%",
-                  label: "since last month",
+                  value: "+22222",
+                  label: "since yesterday",
                 }}
                 dropdown={{
-                  action: openSalesDropdown,
-                  menu: renderMenu(salesDropdown, closeSalesDropdown),
-                  value: salesDropdownValue,
+                  action: openTimeframeDropdown,
+                  menu: renderMenu(timeframeDropdown, closeTimeframeDropdown),
+                  value: timeframeValue,
                 }}
               />
             </Grid>
             <Grid item xs={12} sm={4}>
               <DefaultStatisticsCard
-                title="customers"
-                count="3.200"
+                title="Alerts Triggered"
+                count="24"
                 percentage={{
                   color: "success",
-                  value: "+12%",
-                  label: "since last month",
+                  value: "+5",
+                  label: "since yesterday",
                 }}
                 dropdown={{
-                  action: openCustomersDropdown,
-                  menu: renderMenu(customersDropdown, closeCustomersDropdown),
-                  value: customersDropdownValue,
+                  action: openTimeframeDropdown,
+                  menu: renderMenu(timeframeDropdown, closeTimeframeDropdown),
+                  value: timeframeValue,
                 }}
               />
             </Grid>
             <Grid item xs={12} sm={4}>
               <DefaultStatisticsCard
-                title="avg. revenue"
-                count="$1.200"
+                title="Avg. Response Time"
+                count="1.2s"
                 percentage={{
-                  color: "secondary",
-                  value: "+$213",
-                  label: "since last month",
+                  color: "success",
+                  value: "-0.3s",
+                  label: "since last week",
                 }}
                 dropdown={{
-                  action: openRevenueDropdown,
-                  menu: renderMenu(revenueDropdown, closeRevenueDropdown),
-                  value: revenueDropdownValue,
+                  action: openTimeframeDropdown,
+                  menu: renderMenu(timeframeDropdown, closeTimeframeDropdown),
+                  value: timeframeValue,
                 }}
               />
             </Grid>
           </Grid>
         </MDBox>
+        
+        {/* Tabs for Alert Creation and Management */}
+        <MDBox mb={3}>
+          <Card>
+            <MDBox p={3}>
+              <Tabs value={tabValue} onChange={handleTabChange}>
+                <Tab label="Create Alert" />
+                <Tab label="My Alerts" />
+                <Tab label="Templates" />
+              </Tabs>
+              
+              {/* Tab content */}
+              <MDBox py={3}>
+                {tabValue === 0 && (
+                  <AlertBuilder />
+                )}
+                {tabValue === 1 && (
+                  <DataTable 
+                    table={{
+                      columns: [
+                        { Header: "Alert Name", accessor: "name" },
+                        { Header: "Type", accessor: "type" },
+                        { Header: "Sources", accessor: "sources" },
+                        { Header: "Status", accessor: "status" },
+                        { Header: "Last Triggered", accessor: "lastTriggered" },
+                        { Header: "Actions", accessor: "actions" },
+                      ],
+                      rows: [
+                        {
+                          name: "Bitcoin Volume + Trump Tweet",
+                          type: "Multi-Signal",
+                          sources: "Twitter, Binance",
+                          status: "Active",
+                          lastTriggered: "2h ago",
+                          actions: (
+                            <MDBox display="flex">
+                              <Tooltip title="Edit Alert" placement="top">
+                                <MDButton variant="text" color="info" iconOnly>
+                                  <Icon>edit</Icon>
+                                </MDButton>
+                              </Tooltip>
+                              <Tooltip title="Pause Alert" placement="top">
+                                <MDButton variant="text" color="warning" iconOnly>
+                                  <Icon>pause</Icon>
+                                </MDButton>
+                              </Tooltip>
+                              <Tooltip title="Delete Alert" placement="top">
+                                <MDButton variant="text" color="error" iconOnly>
+                                  <Icon>delete</Icon>
+                                </MDButton>
+                              </Tooltip>
+                            </MDBox>
+                          ),
+                        },
+                        // Add more sample alerts here
+                      ],
+                    }}
+                  />
+                )}
+                {tabValue === 2 && (
+                  <Grid container spacing={3}>
+                    {/* Template cards would go here */}
+                    <Grid item xs={12} md={4}>
+                      <Card>
+                        <MDBox p={3}>
+                          <MDTypography variant="h6">Bitcoin + Tweet Alert</MDTypography>
+                          <MDTypography variant="body2" color="text">
+                            Triggers when specified person tweets about Bitcoin and volume increases
+                          </MDTypography>
+                          <MDBox mt={2} display="flex" justifyContent="space-between">
+                            <MDButton variant="gradient" color="info" size="small">
+                              Use Template
+                            </MDButton>
+                            <MDButton variant="outlined" color="info" size="small">
+                              Preview
+                            </MDButton>
+                          </MDBox>
+                        </MDBox>
+                      </Card>
+                    </Grid>
+                    {/* More template cards */}
+                  </Grid>
+                )}
+              </MDBox>
+            </MDBox>
+          </Card>
+        </MDBox>
+        
+        {/* Recent Alert Activity */}
         <MDBox mb={3}>
           <Grid container spacing={3}>
-            <Grid item xs={12} sm={6} lg={4}>
-              <ChannelsChart />
-            </Grid>
-            <Grid item xs={12} sm={6} lg={8}>
-              <DefaultLineChart
-                title="Revenue"
-                description={
-                  <MDBox display="flex" justifyContent="space-between">
-                    <MDBox display="flex" ml={-1}>
-                      <MDBadgeDot color="info" size="sm" badgeContent="Facebook Ads" />
-                      <MDBadgeDot color="dark" size="sm" badgeContent="Google Ads" />
-                    </MDBox>
-                    <MDBox mt={-4} mr={-1} position="absolute" right="1.5rem">
-                      <Tooltip title="See which ads perform better" placement="left" arrow>
-                        <MDButton
-                          variant="outlined"
-                          color="secondary"
-                          size="small"
-                          circular
-                          iconOnly
-                        >
-                          <Icon>priority_high</Icon>
-                        </MDButton>
-                      </Tooltip>
-                    </MDBox>
-                  </MDBox>
-                }
-                chart={defaultLineChartData}
-              />
+            <Grid item xs={12}>
+              <Card>
+                <MDBox pt={3} px={3}>
+                  <MDTypography variant="h6" fontWeight="medium">
+                    Recent Alert Activity
+                  </MDTypography>
+                </MDBox>
+                <MDBox py={1}>
+                  <RecentAlertsList />
+                </MDBox>
+              </Card>
             </Grid>
           </Grid>
         </MDBox>
-        <MDBox mb={3}>
-          <Grid container spacing={3}>
-            <Grid item xs={12} lg={8}>
-              <HorizontalBarChart title="Sales by age" chart={horizontalBarChartData} />
-            </Grid>
-            <Grid item xs={12} lg={4}>
-              <SalesTable title="Sales by Country" rows={salesTableData} />
-            </Grid>
-          </Grid>
-        </MDBox>
-        <Grid container spacing={3}>
-          <Grid item xs={12}>
-            <Card>
-              <MDBox pt={3} px={3}>
-                <MDTypography variant="h6" fontWeight="medium">
-                  Top Selling Products
-                </MDTypography>
-              </MDBox>
-              <MDBox py={1}>
-                <DataTable
-                  table={dataTableData}
-                  entriesPerPage={false}
-                  showTotalEntries={false}
-                  isSorted={false}
-                  noEndBorder
-                />
-              </MDBox>
-            </Card>
-          </Grid>
-        </Grid>
       </MDBox>
       <Footer />
     </DashboardLayout>
   );
 }
 
-export default Sales;
+export default Alerts;

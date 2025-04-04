@@ -1,7 +1,7 @@
 {
   "files": {
     "main.css": "/static/css/main.a2c40fc9.css",
-    "main.js": "/static/js/main.2c1d6738.js",
+    "main.js": "/static/js/main.9f1bb729.js",
     "static/media/pattern-tree.svg": "/static/media/pattern-tree.156bb943ac7fd244f10c115d085e085e.svg",
     "static/media/product-11.jpg": "/static/media/product-11.a5600b8de08405e600c3.jpg",
     "static/media/home-decor-3.jpg": "/static/media/home-decor-3.74d13fcbd3c631fc7908.jpg",
@@ -17,7 +17,6 @@
     "static/media/illustration-reset.jpg": "/static/media/illustration-reset.c5f36c0c2262b9ad6165.jpg",
     "static/media/product-details-1.jpg": "/static/media/product-details-1.dbceaa6d07f741b8de75.jpg",
     "static/media/bg-reset-cover.jpeg": "/static/media/bg-reset-cover.971989897672e4cc7ab1.jpeg",
-    "static/media/photo-tools.jpeg": "/static/media/photo-tools.30dae586cc4e5424fd81.jpeg",
     "static/media/product-details-2.jpg": "/static/media/product-details-2.ddd6c858035820823168.jpg",
     "static/media/product-details-5.jpg": "/static/media/product-details-5.1e25c0dbb04433a07295.jpg",
     "static/media/product-details-4.jpg": "/static/media/product-details-4.a1e3a033d9bb1a6bd528.jpg",
@@ -25,12 +24,9 @@
     "static/media/product-details-3.jpg": "/static/media/product-details-3.05e5b7225f805e3f41e0.jpg",
     "static/media/bg-player.jpeg": "/static/media/bg-player.ab6b2e90967cfe575cba.jpeg",
     "static/media/product-2-min.jpg": "/static/media/product-2-min.0ef21c3599693a69cd7e.jpg",
-    "static/media/bang-sound.jpeg": "/static/media/bang-sound.116944f6b03d4962319f.jpeg",
     "static/media/product-3-min.jpg": "/static/media/product-3-min.c4eb341f49bb541a8a8e.jpg",
     "static/media/office-dark.jpg": "/static/media/office-dark.1a5b950b43ac88b815d5.jpg",
-    "static/media/blue-shoe.jpeg": "/static/media/blue-shoe.d71240678a32ce1184bb.jpeg",
     "static/media/home-decor-4.jpeg": "/static/media/home-decor-4.5b448fd339a14695f6aa.jpeg",
-    "static/media/black-mug.jpeg": "/static/media/black-mug.4222a3da4c88cd2a6929.jpeg",
     "static/media/visa.png": "/static/media/visa.71c0d5e9e2aaee42e4c3.png",
     "static/media/black-chair.jpeg": "/static/media/black-chair.ae677f8f033997d585d0.jpeg",
     "static/media/mastercard.png": "/static/media/mastercard.27fca3e7637a9458fb64.png",
@@ -60,10 +56,10 @@
     "static/media/logo-asana.svg": "/static/media/logo-asana.d758f410d82760a61d1eabcb03409de6.svg",
     "index.html": "/index.html",
     "main.a2c40fc9.css.map": "/static/css/main.a2c40fc9.css.map",
-    "main.2c1d6738.js.map": "/static/js/main.2c1d6738.js.map"
+    "main.9f1bb729.js.map": "/static/js/main.9f1bb729.js.map"
   },
   "entrypoints": [
     "static/css/main.a2c40fc9.css",
-    "static/js/main.2c1d6738.js"
+    "static/js/main.9f1bb729.js"
   ]
 }
