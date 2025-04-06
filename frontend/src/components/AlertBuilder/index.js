@@ -388,6 +388,7 @@ const getItemIconColor = (type) => {
   }
 };
 
+
 function LogicalGroup({ 
   group, 
   onAddGroup, 
@@ -539,6 +540,15 @@ function AlertBuilder() {
   const [searchTerm, setSearchTerm] = useState("");
   const [activeCategory, setActiveCategory] = useState("popular");
 
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 1;
+
+  // Add the handleCategoryChange function here
+  const handleCategoryChange = (newCategory) => {
+    setActiveCategory(newCategory);
+    setCurrentPage(1); // Reset to first page when changing categories
+  };
+
   // Helper function to get visible indicators based on search and selected category
   const getVisibleIndicators = () => {
     let result = [];
@@ -641,8 +651,21 @@ function AlertBuilder() {
           ];
       }
     }
-    
+
+    result = result.map(category => ({
+      ...category,
+      totalItems: category.items.length, // Store the total count for pagination
+      items: paginateItems(category.items)
+    }));
+
     return result;
+  };
+
+  // Helper function for pagination
+  const paginateItems = (items) => {
+    const startIndex = (currentPage - 1) * itemsPerPage;
+    const endIndex = startIndex + itemsPerPage;
+    return items.slice(startIndex, endIndex);
   };
 
   // Toggle delivery methods
@@ -1134,7 +1157,7 @@ function AlertBuilder() {
                 <MDButton 
                   variant="outlined"
                   size="small"
-                  onClick={() => setActiveCategory("popular")}
+                  onClick={() => handleCategoryChange("popular")}
                   color={activeCategory === "popular" ? "info" : "secondary"}
                 >
                   Popular
@@ -1142,7 +1165,7 @@ function AlertBuilder() {
                 <MDButton
                   variant="outlined"
                   size="small"
-                  onClick={() => setActiveCategory("trend")}
+                  onClick={() => handleCategoryChange("trend")}
                   color={activeCategory === "trend" ? "info" : "secondary"}
                 >
                   Trend
@@ -1150,7 +1173,7 @@ function AlertBuilder() {
                 <MDButton
                   variant="outlined"
                   size="small"
-                  onClick={() => setActiveCategory("momentum")}
+                  onClick={() => handleCategoryChange("momentum")}
                   color={activeCategory === "momentum" ? "info" : "secondary"}
                 >
                   Momentum
@@ -1158,7 +1181,7 @@ function AlertBuilder() {
                 <MDButton
                   variant="outlined"
                   size="small"
-                  onClick={() => setActiveCategory("social")}
+                  onClick={() => handleCategoryChange("social")}
                   color={activeCategory === "social" ? "info" : "secondary"}
                 >
                   Social
@@ -1212,6 +1235,32 @@ function AlertBuilder() {
                         </MDBox>
                       )}
                     </Droppable>
+                    {/* Add pagination controls if there are more items than fit on one page */}
+                    {category.totalItems > itemsPerPage && (
+                      <MDBox display="flex" justifyContent="center" alignItems="center" mt={1} mb={2}>
+                        <MDButton 
+                          disabled={currentPage === 1}
+                          onClick={() => setCurrentPage(prev => prev - 1)}
+                          size="small"
+                          variant="outlined"  // Change from "text" to "contained"
+                          color="info"
+                        >
+                          <Icon>chevron_left</Icon>
+                        </MDButton>
+                        <MDBox mx={2} display="flex" alignItems="center">
+                          Page {currentPage} of {Math.ceil(category.totalItems / itemsPerPage)}
+                        </MDBox>
+                        <MDButton 
+                          disabled={currentPage >= Math.ceil(category.totalItems / itemsPerPage)}
+                          onClick={() => setCurrentPage(prev => prev + 1)}
+                          size="small"
+                          variant="outlined"  // Change from "text" to "contained"
+                          color="info"
+                        >
+                          <Icon>chevron_right</Icon>
+                        </MDButton>
+                      </MDBox>
+                    )}
                   </React.Fragment>
                 ))}
               </MDBox>
