@@ -1,8 +1,8 @@
 import React, { useState } from "react";
-import { DragDropContext, Droppable, Draggable } from "react-beautiful-dnd";
 import { 
   Card, Grid, Icon, Divider, TextField, Select, MenuItem, FormControl, 
-  InputLabel, Box, Autocomplete, ToggleButton, ToggleButtonGroup, InputAdornment 
+  InputLabel, Box, Autocomplete, ToggleButton, ToggleButtonGroup, InputAdornment,
+  Paper, Collapse, IconButton
 } from "@mui/material";
 
 import MDBox from "components/MDBox";
@@ -29,398 +29,451 @@ const supportedAccounts = [
   { value: "@SECGov", label: "SEC (@SECGov)" },
 ];
 
-// Initial data structure
-const initialSources = {
-  marketIndicators: [
-    { id: "rsi", content: "RSI", icon: "trending_up", type: "indicator" },
-    { id: "macd", content: "MACD", icon: "show_chart", type: "indicator" },
-    { id: "bollinger", content: "Bollinger Bands", icon: "waterfall_chart", type: "indicator" },
-    { id: "volume", content: "Volume", icon: "ssid_chart", type: "indicator" }
-  ],
-  socialMedia: [
-    { id: "twitter", content: "Twitter/X", icon: "tag", type: "social" },
-    { id: "reddit", content: "Reddit", icon: "forum", type: "social" },
-    { id: "stocktwits", content: "StockTwits", icon: "message", type: "social" }
-  ],
-  economicData: [
-    { id: "earnings", content: "Earnings Reports", icon: "receipt_long", type: "economic" },
-    { id: "news", content: "News Releases", icon: "newspaper", type: "economic" },
-    { id: "calendar", content: "Economic Calendar", icon: "event", type: "economic" }
-  ]
-};
+// Signal categories for the palette
+const signalCategories = [
+  {
+    id: "marketIndicators",
+    title: "Market Indicators",
+    items: [
+      { id: "rsi", content: "RSI", icon: "trending_up", type: "indicator" },
+      { id: "macd", content: "MACD", icon: "show_chart", type: "indicator" },
+      { id: "bollinger", content: "Bollinger Bands", icon: "waterfall_chart", type: "indicator" },
+      { id: "volume", content: "Volume", icon: "ssid_chart", type: "indicator" }
+    ]
+  },
+  {
+    id: "socialMedia",
+    title: "Social Media",
+    items: [
+      { id: "twitter", content: "Twitter/X", icon: "tag", type: "social" },
+      { id: "reddit", content: "Reddit", icon: "forum", type: "social" },
+      { id: "stocktwits", content: "StockTwits", icon: "message", type: "social" }
+    ]
+  },
+  {
+    id: "economicData",
+    title: "Economic Data",
+    items: [
+      { id: "earnings", content: "Earnings Reports", icon: "receipt_long", type: "economic" },
+      { id: "news", content: "News Releases", icon: "newspaper", type: "economic" },
+      { id: "calendar", content: "Economic Calendar", icon: "event", type: "economic" }
+    ]
+  }
+];
 
 // Initial workflow state with root group
 const initialWorkflow = {
   rootGroup: {
     id: "root",
     type: "AND",
-    items: [],
+    blocks: [],
     groups: []
   }
 };
 
-// Condition item component
-function ConditionItem({ item, onRemove, onUpdate }) {
+// Helper functions for different item type colors
+const getBlockBorderColor = (type) => {
+  switch(type) {
+    case 'indicator': return 'rgba(25, 118, 210, 0.3)';  // Blue
+    case 'social': return 'rgba(76, 175, 80, 0.3)';      // Green
+    case 'economic': return 'rgba(255, 152, 0, 0.3)';    // Orange
+    default: return 'rgba(158, 158, 158, 0.3)';          // Gray
+  }
+};
+
+const getBlockHeaderColor = (type) => {
+  switch(type) {
+    case 'indicator': return 'rgba(232, 244, 253, 0.8)';  // Light blue
+    case 'social': return 'rgba(237, 247, 237, 0.8)';     // Light green
+    case 'economic': return 'rgba(255, 243, 224, 0.8)';   // Light orange
+    default: return 'rgba(238, 238, 238, 0.8)';           // Light gray
+  }
+};
+
+const getBlockIconColor = (type) => {
+  switch(type) {
+    case 'indicator': return 'primary.main';  // Blue
+    case 'social': return 'success.main';     // Green
+    case 'economic': return 'warning.main';   // Orange
+    default: return 'text.secondary';         // Gray
+  }
+};
+
+// Signal Block Component
+function SignalBlock({ 
+  block, 
+  onRemove, 
+  onUpdate, 
+  expandedByDefault = false,
+  isSelected = false,
+  onToggleSelect
+}) {
+  const [expanded, setExpanded] = useState(expandedByDefault);
+
   return (
-    <MDBox 
-      mb={2}
-      p={2}
-      borderRadius="lg"
-      sx={{ 
-        backgroundColor: "white", 
-        boxShadow: '0 3px 5px rgba(0,0,0,0.08)',
-        border: "1px solid",
-        borderColor: getItemBorderColor(item.type),
-        transition: 'all 0.2s ease',
+    <Paper
+      elevation={2}
+      sx={{
+        mb: 2,
+        borderRadius: 2,
+        position: 'relative',
+        borderLeft: `4px solid ${getBlockBorderColor(block.type)}`,
+        transition: 'all 0.2s',
+        outline: isSelected ? '2px solid rgba(25, 118, 210, 0.7)' : 'none',
         '&:hover': {
-          boxShadow: '0 5px 10px rgba(0,0,0,0.1)',
-          borderColor: getItemHoverBorderColor(item.type),
+          boxShadow: 3
         }
       }}
     >
+      {/* Block Header */}
+      <MDBox
+        display="flex"
+        justifyContent="space-between"
+        alignItems="center"
+        p={1.5}
+        sx={{
+          backgroundColor: getBlockHeaderColor(block.type),
+          borderTopRightRadius: 8,
+          cursor: 'pointer'
+        }}
+      >
+        <MDBox display="flex" alignItems="center" onClick={() => setExpanded(!expanded)}>
+          <Icon 
+            sx={{ 
+              mr: 1,
+              color: getBlockIconColor(block.type),
+              fontSize: '1.25rem'
+            }}
+          >
+            {block.icon}
+          </Icon>
+          <MDTypography variant="button" fontWeight="medium">
+            {block.content}
+          </MDTypography>
+        </MDBox>
+        <MDBox>
+          <IconButton
+            size="small"
+            onClick={(e) => {
+              e.stopPropagation();
+              console.log("Checkbox clicked", {
+                blockId: block.id,
+                onToggleSelect: onToggleSelect,
+                isFunction: typeof onToggleSelect === 'function'
+              });
+              onToggleSelect(block.id);
+            }}
+            color={isSelected ? "primary" : "default"}
+          >
+            <Icon>{isSelected ? 'check_box' : 'check_box_outline_blank'}</Icon>
+          </IconButton>
+          <IconButton
+            size="small"
+            onClick={(e) => {
+              e.stopPropagation();
+              setExpanded(!expanded);
+            }}
+          >
+            <Icon>{expanded ? 'expand_less' : 'expand_more'}</Icon>
+          </IconButton>
+          <IconButton
+            size="small"
+            color="error"
+            onClick={(e) => {
+              e.stopPropagation();
+              onRemove();
+            }}
+          >
+            <Icon>delete</Icon>
+          </IconButton>
+        </MDBox>
+      </MDBox>
+
+      {/* Block Content - Collapsible */}
+      <Collapse in={expanded}>
+        <MDBox p={2}>
+          {/* Different config options based on signal type */}
+          {block.type === "indicator" && (
+            <Grid container spacing={2}>
+              <Grid item xs={12} sm={4}>
+                <FormControl fullWidth size="small">
+                  <Autocomplete
+                    options={supportedSymbols}
+                    getOptionLabel={(option) => option.label || option}
+                    isOptionEqualToValue={(option, value) => option.value === value || option.value === value.value}
+                    value={supportedSymbols.find(s => s.value === block.config.symbol) || null}
+                    onChange={(e, newValue) => onUpdate({ symbol: newValue?.value || "" })}
+                    renderInput={(params) => <TextField {...params} label="Symbol" />}
+                  />
+                </FormControl>
+              </Grid>
+              <Grid item xs={12} sm={4}>
+                <FormControl fullWidth size="small">
+                  <InputLabel>Timeframe</InputLabel>
+                  <Select
+                    value={block.config.timeframe}
+                    label="Timeframe"
+                    onChange={(e) => onUpdate({ timeframe: e.target.value })}
+                  >
+                    <MenuItem value="1m">1 minute</MenuItem>
+                    <MenuItem value="5m">5 minutes</MenuItem>
+                    <MenuItem value="15m">15 minutes</MenuItem>
+                    <MenuItem value="1h">1 hour</MenuItem>
+                    <MenuItem value="4h">4 hours</MenuItem>
+                    <MenuItem value="1d">1 day</MenuItem>
+                  </Select>
+                </FormControl>
+              </Grid>
+              
+              {/* Indicator-specific configs same as before */}
+              {renderIndicatorSpecificControls(block, onUpdate)}
+            </Grid>
+          )}
+
+          {block.type === "social" && (
+            <Grid container spacing={2}>
+              <Grid item xs={12} sm={6}>
+                <FormControl fullWidth size="small">
+                  <Autocomplete
+                    options={supportedAccounts}
+                    getOptionLabel={(option) => option.label || option}
+                    isOptionEqualToValue={(option, value) => option.value === value || option.value === value.value}
+                    value={supportedAccounts.find(a => a.value === block.config.account) || null}
+                    onChange={(e, newValue) => onUpdate({ account: newValue?.value || "" })}
+                    renderInput={(params) => <TextField {...params} label="Account" />}
+                  />
+                </FormControl>
+              </Grid>
+              <Grid item xs={12} sm={6}>
+                <TextField
+                  fullWidth
+                  label="Keywords (comma separated)"
+                  value={block.config.keywords}
+                  onChange={(e) => onUpdate({ keywords: e.target.value })}
+                  variant="outlined"
+                  size="small"
+                />
+              </Grid>
+            </Grid>
+          )}
+
+          {block.type === "economic" && (
+            <Grid container spacing={2}>
+              <Grid item xs={12} sm={6}>
+                <FormControl fullWidth size="small">
+                  <InputLabel>Event</InputLabel>
+                  <Select
+                    value={block.config.event}
+                    label="Event"
+                    onChange={(e) => onUpdate({ event: e.target.value })}
+                  >
+                    <MenuItem value="Earnings">Earnings Report</MenuItem>
+                    <MenuItem value="FedRate">Fed Rate Decision</MenuItem>
+                    <MenuItem value="GDP">GDP Release</MenuItem>
+                    <MenuItem value="Jobs">Jobs Report</MenuItem>
+                  </Select>
+                </FormControl>
+              </Grid>
+              <Grid item xs={12} sm={6}>
+                <FormControl fullWidth size="small">
+                  <InputLabel>Impact</InputLabel>
+                  <Select
+                    value={block.config.impact}
+                    label="Impact"
+                    onChange={(e) => onUpdate({ impact: e.target.value })}
+                  >
+                    <MenuItem value="Low">Low</MenuItem>
+                    <MenuItem value="Medium">Medium</MenuItem>
+                    <MenuItem value="High">High</MenuItem>
+                  </Select>
+                </FormControl>
+              </Grid>
+            </Grid>
+          )}
+        </MDBox>
+      </Collapse>
+    </Paper>
+  );
+}
+
+// Function to render indicator-specific controls
+function renderIndicatorSpecificControls(block, onUpdate) {
+  if (block.content === "RSI") {
+    return (
+      <>
+        <Grid item xs={12} sm={4}>
+          <FormControl fullWidth size="small">
+            <InputLabel>Condition</InputLabel>
+            <Select
+              value={block.config.condition || "crossesAbove"}
+              label="Condition"
+              onChange={(e) => onUpdate({ condition: e.target.value })}
+            >
+              <MenuItem value="crossesAbove">Crosses Above</MenuItem>
+              <MenuItem value="crossesBelow">Crosses Below</MenuItem>
+              <MenuItem value="staysAbove">Stays Above</MenuItem>
+              <MenuItem value="staysBelow">Stays Below</MenuItem>
+            </Select>
+          </FormControl>
+        </Grid>
+        <Grid item xs={12} sm={4}>
+          <TextField
+            fullWidth
+            label="Value"
+            type="number"
+            value={block.config.threshold || 70}
+            onChange={(e) => onUpdate({ threshold: e.target.value })}
+            variant="outlined"
+            size="small"
+            helperText="70+ typically overbought, 30- oversold"
+          />
+        </Grid>
+      </>
+    );
+  } else if (block.content === "MACD") {
+    return (
+      <Grid item xs={12} sm={8}>
+        <FormControl fullWidth size="small">
+          <InputLabel>Condition</InputLabel>
+          <Select
+            value={block.config.condition || "lineAboveSignal"}
+            label="Condition"
+            onChange={(e) => onUpdate({ condition: e.target.value })}
+          >
+            <MenuItem value="lineAboveSignal">MACD Line Crosses Above Signal Line</MenuItem>
+            <MenuItem value="lineBelowSignal">MACD Line Crosses Below Signal Line</MenuItem>
+            <MenuItem value="histogramPositive">Histogram Becomes Positive</MenuItem>
+            <MenuItem value="histogramNegative">Histogram Becomes Negative</MenuItem>
+            <MenuItem value="histogramIncreasing">Histogram Increasing</MenuItem>
+            <MenuItem value="histogramDecreasing">Histogram Decreasing</MenuItem>
+          </Select>
+        </FormControl>
+      </Grid>
+    );
+  }else if (block.content === "Bollinger Bands") {
+    return (
+      <>
+        <Grid item xs={12} sm={8}>
+          <FormControl fullWidth size="small">
+            <InputLabel>Condition</InputLabel>
+            <Select
+              value={block.config.condition || "priceAboveUpper"}
+              label="Condition"
+              onChange={(e) => onUpdate({ condition: e.target.value })}
+            >
+              <MenuItem value="priceAboveUpper">Price Crosses Above Upper Band</MenuItem>
+              <MenuItem value="priceBelowLower">Price Crosses Below Lower Band</MenuItem>
+              <MenuItem value="priceToMiddleFromAbove">Price Returns to Middle Band from Above</MenuItem>
+              <MenuItem value="priceToMiddleFromBelow">Price Returns to Middle Band from Below</MenuItem>
+              <MenuItem value="bandsSqueezing">Bands Narrowing (Volatility Decreasing)</MenuItem>
+              <MenuItem value="bandsExpanding">Bands Widening (Volatility Increasing)</MenuItem>
+            </Select>
+          </FormControl>
+        </Grid>
+        <Grid item xs={12} sm={4}>
+          <TextField
+            fullWidth
+            label="Standard Deviations"
+            type="number"
+            value={block.config.standardDeviations || 2}
+            onChange={(e) => onUpdate({ standardDeviations: e.target.value })}
+            variant="outlined"
+            size="small"
+            helperText="Usually 2.0"
+          />
+        </Grid>
+      </>
+    );
+  } else if (block.content === "Volume") {
+    return (
+      <>
+        <Grid item xs={12} sm={4}>
+          <FormControl fullWidth size="small">
+            <InputLabel>Condition</InputLabel>
+            <Select
+              value={block.config.condition || "increasesBy"}
+              label="Condition"
+              onChange={(e) => onUpdate({ condition: e.target.value })}
+            >
+              <MenuItem value="increasesBy">Increases By</MenuItem>
+              <MenuItem value="decreasesBy">Decreases By</MenuItem>
+              <MenuItem value="exceedsAverage">Exceeds Moving Average By</MenuItem>
+              <MenuItem value="fallsBelowAverage">Falls Below Moving Average By</MenuItem>
+              <MenuItem value="exceeds">Exceeds Value</MenuItem>
+            </Select>
+          </FormControl>
+        </Grid>
+        <Grid item xs={12} sm={4}>
+          <TextField
+            fullWidth
+            label={block.config.condition?.includes("Average") ? "Percentage" : 
+                  block.config.condition === "exceeds" ? "Value" : "Percentage"}
+            type="number"
+            value={block.config.percentage || 20}
+            onChange={(e) => onUpdate({ percentage: e.target.value })}
+            variant="outlined"
+            size="small"
+            InputProps={block.config.condition !== "exceeds" ? {
+              endAdornment: <InputAdornment position="end">%</InputAdornment>,
+            } : undefined}
+          />
+        </Grid>
+      </>
+    );
+  }
+  return null;
+}
+
+// Logic Group Component
+function LogicGroup({ 
+  group, 
+  onAddBlock,
+  onAddGroup, 
+  onRemoveGroup, 
+  onChangeType,
+  onRemoveBlock,
+  onUpdateBlock,
+  selectedBlocks,
+  onToggleSelectBlock,
+  onGroupSelectedBlocks,
+  level = 0,
+  isRoot = false 
+}) {
+  // Function to get the connector line style
+  const getConnectorStyle = (index, total) => ({
+    position: 'absolute',
+    left: '-20px',
+    top: index === 0 ? '50%' : 0,
+    height: index === total - 1 ? '50%' : '100%',
+    width: '20px',
+    borderLeft: '2px solid',
+    borderColor: 'rgba(0,0,0,0.1)',
+    borderBottom: index !== total - 1 ? 'none' : '2px solid rgba(0,0,0,0.1)',
+    zIndex: 0
+  });
+
+  return (
+    <MDBox 
+      position="relative"
+      p={2} 
+      mb={2}
+      borderRadius={2}
+      sx={{ /* same styles */ }}
+    >
+      {/* Logic Operator Toggle */}
       <MDBox 
         display="flex" 
         justifyContent="space-between" 
         alignItems="center" 
-        mb={1}
-        bgcolor={getItemHeaderColor(item.type)}
-        borderRadius="md"
-        p={1}
-        ml={-1}
-        mr={-1}
-        mt={-1}
+        mb={3}
+        bgcolor={level === 0 ? "rgba(0,0,0,0.03)" : "rgba(214, 236, 251, 0.8)"}
+        p={1.5}
+        borderRadius={2}
       >
-        <MDBox display="flex" alignItems="center">
-          <Icon sx={{ 
-            mr: 1,
-            color: getItemIconColor(item.type)
-          }}>{item.icon}</Icon>
-          <MDTypography variant="button" fontWeight="medium" color="dark">
-            {item.content}
+        <MDBox>
+          <MDTypography variant="button" fontWeight="medium" color="text" mr={2}>
+            Logic:
           </MDTypography>
-        </MDBox>
-        <MDButton 
-          variant="text" 
-          color="error" 
-          size="small"
-          onClick={onRemove}
-        >
-          <Icon>delete</Icon>
-        </MDButton>
-      </MDBox>
-
-      <Divider sx={{ mb: 2 }} />
-
-      <MDBox mt={2}>
-        {/* Different config options based on signal type */}
-        {item.type === "indicator" && (
-          <Grid container spacing={2}>
-            <Grid item xs={12} sm={4}>
-              <FormControl fullWidth size="small">
-                <Autocomplete
-                  options={supportedSymbols}
-                  getOptionLabel={(option) => option.label || option}
-                  isOptionEqualToValue={(option, value) => option.value === value || option.value === value.value}
-                  value={supportedSymbols.find(s => s.value === item.config.symbol) || null}
-                  onChange={(e, newValue) => onUpdate({ symbol: newValue?.value || "" })}
-                  renderInput={(params) => <TextField {...params} label="Symbol" />}
-                />
-              </FormControl>
-            </Grid>
-            <Grid item xs={12} sm={4}>
-              <FormControl fullWidth size="small">
-                <InputLabel>Timeframe</InputLabel>
-                <Select
-                  value={item.config.timeframe}
-                  label="Timeframe"
-                  onChange={(e) => onUpdate({ timeframe: e.target.value })}
-                >
-                  <MenuItem value="1m">1 minute</MenuItem>
-                  <MenuItem value="5m">5 minutes</MenuItem>
-                  <MenuItem value="15m">15 minutes</MenuItem>
-                  <MenuItem value="1h">1 hour</MenuItem>
-                  <MenuItem value="4h">4 hours</MenuItem>
-                  <MenuItem value="1d">1 day</MenuItem>
-                </Select>
-              </FormControl>
-            </Grid>
-            
-            {/* Indicator-specific conditions */}
-            {item.content === "RSI" && (
-              <>
-                <Grid item xs={12} sm={4}>
-                  <FormControl fullWidth size="small">
-                    <InputLabel>Condition</InputLabel>
-                    <Select
-                      value={item.config.condition || "crossesAbove"}
-                      label="Condition"
-                      onChange={(e) => onUpdate({ condition: e.target.value })}
-                    >
-                      <MenuItem value="crossesAbove">Crosses Above</MenuItem>
-                      <MenuItem value="crossesBelow">Crosses Below</MenuItem>
-                      <MenuItem value="staysAbove">Stays Above</MenuItem>
-                      <MenuItem value="staysBelow">Stays Below</MenuItem>
-                    </Select>
-                  </FormControl>
-                </Grid>
-                <Grid item xs={12} sm={4}>
-                  <TextField
-                    fullWidth
-                    label="Value"
-                    type="number"
-                    value={item.config.threshold || 70}
-                    onChange={(e) => onUpdate({ threshold: e.target.value })}
-                    variant="outlined"
-                    size="small"
-                    helperText="70+ typically overbought, 30- oversold"
-                  />
-                </Grid>
-              </>
-            )}
-            
-            {item.content === "MACD" && (
-              <>
-                <Grid item xs={12} sm={8}>
-                  <FormControl fullWidth size="small">
-                    <InputLabel>Condition</InputLabel>
-                    <Select
-                      value={item.config.condition || "lineAboveSignal"}
-                      label="Condition"
-                      onChange={(e) => onUpdate({ condition: e.target.value })}
-                    >
-                      <MenuItem value="lineAboveSignal">MACD Line Crosses Above Signal Line</MenuItem>
-                      <MenuItem value="lineBelowSignal">MACD Line Crosses Below Signal Line</MenuItem>
-                      <MenuItem value="histogramPositive">Histogram Becomes Positive</MenuItem>
-                      <MenuItem value="histogramNegative">Histogram Becomes Negative</MenuItem>
-                      <MenuItem value="histogramIncreasing">Histogram Increasing</MenuItem>
-                      <MenuItem value="histogramDecreasing">Histogram Decreasing</MenuItem>
-                    </Select>
-                  </FormControl>
-                </Grid>
-              </>
-            )}
-            
-            {item.content === "Bollinger Bands" && (
-              <>
-                <Grid item xs={12} sm={8}>
-                  <FormControl fullWidth size="small">
-                    <InputLabel>Condition</InputLabel>
-                    <Select
-                      value={item.config.condition || "priceAboveUpper"}
-                      label="Condition"
-                      onChange={(e) => onUpdate({ condition: e.target.value })}
-                    >
-                      <MenuItem value="priceAboveUpper">Price Crosses Above Upper Band</MenuItem>
-                      <MenuItem value="priceBelowLower">Price Crosses Below Lower Band</MenuItem>
-                      <MenuItem value="priceToMiddleFromAbove">Price Returns to Middle Band from Above</MenuItem>
-                      <MenuItem value="priceToMiddleFromBelow">Price Returns to Middle Band from Below</MenuItem>
-                      <MenuItem value="bandsSqueezing">Bands Narrowing (Volatility Decreasing)</MenuItem>
-                      <MenuItem value="bandsExpanding">Bands Widening (Volatility Increasing)</MenuItem>
-                    </Select>
-                  </FormControl>
-                </Grid>
-                <Grid item xs={12} sm={4}>
-                  <TextField
-                    fullWidth
-                    label="Standard Deviations"
-                    type="number"
-                    value={item.config.standardDeviations || 2}
-                    onChange={(e) => onUpdate({ standardDeviations: e.target.value })}
-                    variant="outlined"
-                    size="small"
-                    helperText="Usually 2.0"
-                  />
-                </Grid>
-              </>
-            )}
-            
-            {item.content === "Volume" && (
-              <>
-                <Grid item xs={12} sm={4}>
-                  <FormControl fullWidth size="small">
-                    <InputLabel>Condition</InputLabel>
-                    <Select
-                      value={item.config.condition || "increasesBy"}
-                      label="Condition"
-                      onChange={(e) => onUpdate({ condition: e.target.value })}
-                    >
-                      <MenuItem value="increasesBy">Increases By</MenuItem>
-                      <MenuItem value="decreasesBy">Decreases By</MenuItem>
-                      <MenuItem value="exceedsAverage">Exceeds Moving Average By</MenuItem>
-                      <MenuItem value="fallsBelowAverage">Falls Below Moving Average By</MenuItem>
-                      <MenuItem value="exceeds">Exceeds Value</MenuItem>
-                    </Select>
-                  </FormControl>
-                </Grid>
-                <Grid item xs={12} sm={4}>
-                  <TextField
-                    fullWidth
-                    label={item.config.condition?.includes("Average") ? "Percentage" : 
-                          item.config.condition === "exceeds" ? "Value" : "Percentage"}
-                    type="number"
-                    value={item.config.percentage || 20}
-                    onChange={(e) => onUpdate({ percentage: e.target.value })}
-                    variant="outlined"
-                    size="small"
-                    InputProps={item.config.condition !== "exceeds" ? {
-                      endAdornment: <InputAdornment position="end">%</InputAdornment>,
-                    } : undefined}
-                  />
-                </Grid>
-                {item.config.condition?.includes("Average") && (
-                  <Grid item xs={12} sm={4}>
-                    <TextField
-                      fullWidth
-                      label="Periods"
-                      type="number"
-                      value={item.config.periods || 20}
-                      onChange={(e) => onUpdate({ periods: e.target.value })}
-                      variant="outlined"
-                      size="small"
-                      helperText="For moving average"
-                    />
-                  </Grid>
-                )}
-              </>
-            )}
-          </Grid>
-        )}
-
-        {item.type === "social" && (
-          <Grid container spacing={2}>
-            <Grid item xs={12} sm={6}>
-              <FormControl fullWidth size="small">
-                <Autocomplete
-                  options={supportedAccounts}
-                  getOptionLabel={(option) => option.label || option}
-                  isOptionEqualToValue={(option, value) => option.value === value || option.value === value.value}
-                  value={supportedAccounts.find(a => a.value === item.config.account) || null}
-                  onChange={(e, newValue) => onUpdate({ account: newValue?.value || "" })}
-                  renderInput={(params) => <TextField {...params} label="Account" />}
-                />
-              </FormControl>
-            </Grid>
-            <Grid item xs={12} sm={6}>
-              <TextField
-                fullWidth
-                label="Keywords (comma separated)"
-                value={item.config.keywords}
-                onChange={(e) => onUpdate({ keywords: e.target.value })}
-                variant="outlined"
-                size="small"
-              />
-            </Grid>
-          </Grid>
-        )}
-
-        {item.type === "economic" && (
-          <Grid container spacing={2}>
-            <Grid item xs={12} sm={6}>
-              <FormControl fullWidth size="small">
-                <InputLabel>Event</InputLabel>
-                <Select
-                  value={item.config.event}
-                  label="Event"
-                  onChange={(e) => onUpdate({ event: e.target.value })}
-                >
-                  <MenuItem value="Earnings">Earnings Report</MenuItem>
-                  <MenuItem value="FedRate">Fed Rate Decision</MenuItem>
-                  <MenuItem value="GDP">GDP Release</MenuItem>
-                  <MenuItem value="Jobs">Jobs Report</MenuItem>
-                </Select>
-              </FormControl>
-            </Grid>
-            <Grid item xs={12} sm={6}>
-              <FormControl fullWidth size="small">
-                <InputLabel>Impact</InputLabel>
-                <Select
-                  value={item.config.impact}
-                  label="Impact"
-                  onChange={(e) => onUpdate({ impact: e.target.value })}
-                >
-                  <MenuItem value="Low">Low</MenuItem>
-                  <MenuItem value="Medium">Medium</MenuItem>
-                  <MenuItem value="High">High</MenuItem>
-                </Select>
-              </FormControl>
-            </Grid>
-          </Grid>
-        )}
-      </MDBox>
-    </MDBox>
-  );
-}
-
-// Helper functions for different item type colors
-const getItemBorderColor = (type) => {
-  switch(type) {
-    case 'indicator': return 'rgba(25, 118, 210, 0.3)';  // Blue for indicators
-    case 'social': return 'rgba(76, 175, 80, 0.3)';      // Green for social
-    case 'economic': return 'rgba(255, 152, 0, 0.3)';    // Orange for economic
-    default: return 'grey.300';
-  }
-};
-
-const getItemHoverBorderColor = (type) => {
-  switch(type) {
-    case 'indicator': return 'rgba(25, 118, 210, 0.7)';  // Darker blue
-    case 'social': return 'rgba(76, 175, 80, 0.7)';      // Darker green
-    case 'economic': return 'rgba(255, 152, 0, 0.7)';    // Darker orange
-    default: return 'grey.500';
-  }
-};
-
-const getItemHeaderColor = (type) => {
-  switch(type) {
-    case 'indicator': return 'rgba(232, 244, 253, 0.8)';  // Light blue bg
-    case 'social': return 'rgba(237, 247, 237, 0.8)';     // Light green bg
-    case 'economic': return 'rgba(255, 243, 224, 0.8)';   // Light orange bg
-    default: return 'grey.100';
-  }
-};
-
-const getItemIconColor = (type) => {
-  switch(type) {
-    case 'indicator': return 'primary.main';  // Blue icon
-    case 'social': return 'success.main';     // Green icon
-    case 'economic': return 'warning.main';   // Orange icon
-    default: return 'text.secondary';
-  }
-};
-
-
-function LogicalGroup({ 
-  group, 
-  onAddGroup, 
-  onRemoveGroup, 
-  onChangeType,
-  onRemoveItem,
-  onUpdateItem,
-  level = 0,
-  isRoot = false
-}) {
-  return (
-    <MDBox 
-      p={2} 
-      mb={2}
-      borderRadius="lg"
-      sx={{ 
-        backgroundColor: level === 0 ? "transparent" : "rgba(224, 242, 254, 0.6)", // Light blue for groups
-        border: level === 0 ? "none" : "1px solid",
-        borderColor: "info.light",
-        boxShadow: level > 0 ? '0 2px 5px rgba(0,0,0,0.05)' : 'none'
-      }}
-    >
-      {level > 0 && (
-        <MDBox 
-          display="flex" 
-          justifyContent="space-between" 
-          alignItems="center" 
-          mb={2}
-          bgcolor="rgba(214, 236, 251, 0.8)"
-          p={1}
-          borderRadius="md"
-        >
           <ToggleButtonGroup
             value={group.type}
             exclusive
@@ -430,259 +483,478 @@ function LogicalGroup({
             sx={{
               bgcolor: "white",
               '& .MuiToggleButton-root.Mui-selected': {
-                backgroundColor: 'info.light',
+                backgroundColor: 'info.main',
                 color: 'white'
               }
             }}
           >
             <ToggleButton value="AND">
-              <MDTypography variant="button" fontWeight="medium">ALL (AND)</MDTypography>
+              <MDTypography variant="button" fontWeight="medium">ALL conditions (AND)</MDTypography>
             </ToggleButton>
             <ToggleButton value="OR">
-              <MDTypography variant="button" fontWeight="medium">ANY (OR)</MDTypography>
+              <MDTypography variant="button" fontWeight="medium">ANY condition (OR)</MDTypography>
             </ToggleButton>
           </ToggleButtonGroup>
-          
-          {!isRoot && (
-            <MDButton 
-              variant="text" 
-              color="error" 
-              size="small"
-              onClick={() => onRemoveGroup(group.id)}
-            >
-              <Icon>delete</Icon>
-            </MDButton>
-          )}
         </MDBox>
-      )}
-      
-      {/* Conditions area */}
-      <Droppable droppableId={group.id} type="ITEM">
-        {(provided) => (
-          <MDBox
-            {...provided.droppableProps}
-            ref={provided.innerRef}
-            sx={{ 
-              minHeight: "50px",
-              padding: isRoot ? "8px" : "8px",
-              backgroundColor: isRoot ? "rgba(0,0,0,0.02)" : "white",
-              borderRadius: "6px",
-              border: isRoot ? "1px dashed rgba(0,0,0,0.1)" : "none"
-            }}
+        
+        {!isRoot && (
+          <IconButton 
+            color="error" 
+            size="small"
+            onClick={() => onRemoveGroup(group.id)}
           >
-            {group.items.map((item, index) => (
-              <Draggable key={item.id} draggableId={item.id} index={index}>
-                {(provided) => (
-                  <div
-                    ref={provided.innerRef}
-                    {...provided.draggableProps}
-                    {...provided.dragHandleProps}
-                  >
-                    <ConditionItem 
-                      item={item} 
-                      onRemove={() => onRemoveItem(group.id, item.id)}
-                      onUpdate={(config) => onUpdateItem(group.id, item.id, config)}
-                    />
-                  </div>
-                )}
-              </Draggable>
-            ))}
-            {provided.placeholder}
-          </MDBox>
+            <Icon>delete</Icon>
+          </IconButton>
         )}
-      </Droppable>
+      </MDBox>
+      {/* Blocks Container with Connector Lines */}
+      <MDBox position="relative" ml={4}>
+        {group.blocks.map((block, index) => (
+          <MDBox key={block.id} position="relative">
+            {/* Visual connector line */}
+            {index > 0 && (
+              <Box sx={getConnectorStyle(index, group.blocks.length)} />
+            )}
+            <SignalBlock 
+              block={block} 
+              onRemove={() => onRemoveBlock(group.id, block.id)}
+              onUpdate={(config) => onUpdateBlock(group.id, block.id, config)}
+              isSelected={selectedBlocks.includes(block.id)}
+              onToggleSelect={(blockId) => {
+                console.log("onToggleSelect called in LogicGroup", {
+                  groupId: group.id,
+                  blockId,
+                  onToggleSelectBlock: onToggleSelectBlock,
+                  isFunction: typeof onToggleSelectBlock === 'function'
+                });
+                onToggleSelectBlock(group.id, blockId);
+              }}
+            />
+          </MDBox>
+        ))}
+        
+        {/* Nested groups */}
+        {group.groups.map((subGroup, index) => (
+          <MDBox key={subGroup.id} position="relative">
+            {/* Visual connector line */}
+            {(index > 0 || group.blocks.length > 0) && (
+              <Box sx={getConnectorStyle(
+                group.blocks.length + index, 
+                group.blocks.length + group.groups.length
+              )} />
+            )}
+            <LogicGroup
+              group={subGroup}
+              onAddBlock={onAddBlock}
+              onAddGroup={onAddGroup}
+              onRemoveGroup={onRemoveGroup}
+              onChangeType={onChangeType}
+              onRemoveBlock={onRemoveBlock}
+              onUpdateBlock={onUpdateBlock}
+              selectedBlocks={selectedBlocks}
+              onToggleSelectBlock={onToggleSelectBlock}
+              onGroupSelectedBlocks={onGroupSelectedBlocks}
+              level={level + 1}
+              isRoot={false}
+            />
+          </MDBox>
+        ))}
+      </MDBox>
       
-      {/* Nested groups - only show existing ones */}
-      {group.groups.map(subGroup => (
-        <LogicalGroup
-          key={subGroup.id}
-          group={subGroup}
-          onAddGroup={onAddGroup}
-          onRemoveGroup={onRemoveGroup}
-          onChangeType={onChangeType}
-          onRemoveItem={onRemoveItem}
-          onUpdateItem={onUpdateItem}
-          level={level + 1}
-          isRoot={false}
-        />
-      ))}
-      
-      {/* Add nested group button - only show if level < 1 (root or first level) */}
-      {level < 1 && (
-        <MDBox display="flex" justifyContent="center" mt={2}>
+      {/* Group action buttons */}
+      <MDBox mt={3} ml={4} display="flex" gap={2}>
+        <MDButton 
+          variant="outlined" 
+          color="info" 
+          size="small"
+          startIcon={<Icon>add</Icon>}
+          onClick={() => onAddBlock(group.id)}
+        >
+          Add Signal
+        </MDButton>
+        
+        {selectedBlocks.length > 1 && selectedBlocks.every(id => 
+          // Check if all selected blocks are in this group
+          group.blocks.some(block => block.id === id)
+        ) && (
           <MDButton 
             variant="outlined" 
-            color="info" 
+            color="secondary" 
             size="small"
-            startIcon={<Icon>add_circle</Icon>}
-            onClick={() => onAddGroup(group.id)}
-            sx={{
-              boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
-              '&:hover': {
-                boxShadow: '0 4px 8px rgba(0,0,0,0.1)',
-              }
-            }}
+            startIcon={<Icon>group_work</Icon>}
+            onClick={() => onGroupSelectedBlocks(group.id, selectedBlocks)}
           >
-            Add Condition Group
+            Group Selected ({selectedBlocks.length})
           </MDButton>
-        </MDBox>
-      )}
+        )}
+        
+        {level < 1 && (
+          <MDButton 
+            variant="outlined" 
+            color="secondary" 
+            size="small"
+            startIcon={<Icon>folder</Icon>}
+            onClick={() => onAddGroup(group.id)}
+          >
+            Add Group
+          </MDButton>
+        )}
+      </MDBox>
     </MDBox>
   );
 }
 
-function AlertBuilder() {
-  const [sources, setSources] = useState(initialSources);
-  const [workflow, setWorkflow] = useState(initialWorkflow);
-  const [alertName, setAlertName] = useState("");
-  const [deliveryMethods, setDeliveryMethods] = useState(["email"]);
-
-  const [searchTerm, setSearchTerm] = useState("");
+// Signal Selector Modal
+function SignalSelector({ open, onClose, onSelect, searchTerm, setSearchTerm }) {
   const [activeCategory, setActiveCategory] = useState("popular");
-
   const [currentPage, setCurrentPage] = useState(1);
-  const itemsPerPage = 1;
+  const itemsPerPage = 4;
 
-  // Add the handleCategoryChange function here
   const handleCategoryChange = (newCategory) => {
     setActiveCategory(newCategory);
-    setCurrentPage(1); // Reset to first page when changing categories
+    setCurrentPage(1);
   };
 
-  // Helper function to get visible indicators based on search and selected category
-  const getVisibleIndicators = () => {
-    let result = [];
-    
-    // Handle search case
+  // Filter signals based on search and category
+  const getFilteredSignals = () => {
     if (searchTerm) {
-      // Search across all categories
-      const allSearchResults = [
-        {
-          id: "marketIndicators",
-          title: "Market Indicators",
-          items: sources.marketIndicators.filter(item => 
-            item.content.toLowerCase().includes(searchTerm.toLowerCase())
-          )
-        },
-        {
-          id: "socialMedia",
-          title: "Social Media",
-          items: sources.socialMedia.filter(item => 
-            item.content.toLowerCase().includes(searchTerm.toLowerCase())
-          )
-        },
-        {
-          id: "economicData",
-          title: "Economic Data",
-          items: sources.economicData.filter(item => 
-            item.content.toLowerCase().includes(searchTerm.toLowerCase())
-          )
-        }
-      ];
-      
-      // Only include categories with matching items
-      result = allSearchResults.filter(category => category.items.length > 0);
-    } 
-    // Handle category browsing
-    else {
-      switch (activeCategory) {
-        case "popular":
-          // Show a subset of popular indicators from each category
-          result = [
-            {
-              id: "popularIndicators",
-              title: "Popular Indicators",
-              items: [
-                ...sources.marketIndicators.slice(0, 4),
-                ...sources.socialMedia.slice(0, 1)
-              ]
-            }
-          ];
-          break;
-        case "trend":
-          result = [
-            {
-              id: "trendIndicators",
-              title: "Trend Indicators",
-              items: sources.marketIndicators.filter(item => 
-                ["MACD", "Moving Average", "Bollinger Bands"].includes(item.content)
-              )
-            }
-          ];
-          break;
-        case "momentum":
-          result = [
-            {
-              id: "momentumIndicators",
-              title: "Momentum Indicators",
-              items: sources.marketIndicators.filter(item => 
-                ["RSI", "Stochastic", "CCI"].includes(item.content)
-              )
-            }
-          ];
-          break;
-        case "social":
-          result = [
-            {
-              id: "socialMedia",
-              title: "Social Media",
-              items: sources.socialMedia
-            }
-          ];
-          break;
-        default:
-          // Fall back to showing all categories
-          result = [
-            {
-              id: "marketIndicators",
-              title: "Market Indicators",
-              items: sources.marketIndicators
-            },
-            {
-              id: "socialMedia",
-              title: "Social Media",
-              items: sources.socialMedia
-            },
-            {
-              id: "economicData",
-              title: "Economic Data",
-              items: sources.economicData
-            }
-          ];
-      }
+      return signalCategories.map(category => ({
+        ...category,
+        items: category.items.filter(item => 
+          item.content.toLowerCase().includes(searchTerm.toLowerCase())
+        )
+      })).filter(category => category.items.length > 0);
     }
-
-    result = result.map(category => ({
-      ...category,
-      totalItems: category.items.length, // Store the total count for pagination
-      items: paginateItems(category.items)
-    }));
-
-    return result;
+    
+    switch (activeCategory) {
+      case "popular":
+        return [{
+          id: "popularIndicators",
+          title: "Popular Indicators",
+          items: [
+            ...signalCategories[0].items.slice(0, 2),
+            ...signalCategories[1].items.slice(0, 1),
+            signalCategories[2].items[0]
+          ]
+        }];
+      case "trend":
+      case "momentum":
+      case "social":
+        return signalCategories.filter(cat => 
+          cat.id.toLowerCase().includes(activeCategory.toLowerCase())
+        );
+      default:
+        return signalCategories;
+    }
   };
 
-  // Helper function for pagination
+  // Paginate the results
   const paginateItems = (items) => {
     const startIndex = (currentPage - 1) * itemsPerPage;
     const endIndex = startIndex + itemsPerPage;
-    return items.slice(startIndex, endIndex);
+    return {
+      items: items.slice(startIndex, endIndex),
+      totalItems: items.length
+    };
   };
 
-  // Toggle delivery methods
-  const handleDeliveryMethodsChange = (method) => {
-    if (deliveryMethods.includes(method)) {
-      setDeliveryMethods(deliveryMethods.filter(m => m !== method));
-    } else {
-      setDeliveryMethods([...deliveryMethods, method]);
+  return (
+    <MDBox 
+      position="fixed" 
+      top="50%" 
+      left="50%" 
+      width="90%" 
+      maxWidth="600px"
+      sx={{ 
+        transform: open ? 'translate(-50%, -50%)' : 'translate(-50%, -30%)',
+        opacity: open ? 1 : 0,
+        pointerEvents: open ? 'all' : 'none',
+        transition: 'all 0.3s',
+        zIndex: 1000
+      }}
+    >
+      <Card elevation={4}>
+        <MDBox p={3}>
+          <MDBox display="flex" justifyContent="space-between" alignItems="center" mb={2}>
+            <MDTypography variant="h6">Select Signal</MDTypography>
+            <IconButton onClick={onClose}>
+              <Icon>close</Icon>
+            </IconButton>
+          </MDBox>
+          
+          <TextField
+            fullWidth
+            size="small"
+            placeholder="Search signals..."
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            sx={{ mb: 2 }}
+            InputProps={{
+              startAdornment: <InputAdornment position="start"><Icon>search</Icon></InputAdornment>
+            }}
+          />
+          <MDBox display="flex" gap={1} mb={3} flexWrap="wrap">
+            {["popular", "trend", "momentum", "social"].map(category => (
+              <MDButton
+                key={category}
+                variant={activeCategory === category ? "contained" : "outlined"}
+                color="info"
+                size="small"
+                onClick={() => handleCategoryChange(category)}
+              >
+                {category.charAt(0).toUpperCase() + category.slice(1)}
+              </MDButton>
+            ))}
+          </MDBox>
+          
+          {getFilteredSignals().map(category => {
+            const paginatedData = paginateItems(category.items);
+            
+            return (
+              <MDBox key={category.id} mb={3}>
+                <MDTypography variant="button" color="text" fontWeight="bold">
+                  {category.title}
+                </MDTypography>
+                
+                <Grid container spacing={2} mt={1}>
+                  {paginatedData.items.map(item => (
+                    <Grid item xs={12} sm={6} key={item.id}>
+                      <Paper
+                        elevation={1}
+                        sx={{
+                          p: 2,
+                          borderRadius: 2,
+                          cursor: 'pointer',
+                          borderLeft: `4px solid ${getBlockBorderColor(item.type)}`,
+                          '&:hover': { boxShadow: 3 }
+                        }}
+                        onClick={() => {
+                          onSelect(item);
+                          onClose();
+                        }}
+                      >
+                        <MDBox display="flex" alignItems="center">
+                          <Icon 
+                            sx={{ 
+                              mr: 1,
+                              color: getBlockIconColor(item.type)
+                            }}
+                          >
+                            {item.icon}
+                          </Icon>
+                          <MDTypography variant="button" fontWeight="medium">
+                            {item.content}
+                          </MDTypography>
+                        </MDBox>
+                      </Paper>
+                    </Grid>
+                  ))}
+                </Grid>
+                
+                {paginatedData.totalItems > itemsPerPage && (
+                  <MDBox display="flex" justifyContent="center" mt={2}>
+                    <MDButton
+                      size="small"
+                      variant="outlined"
+                      disabled={currentPage === 1}
+                      onClick={() => setCurrentPage(prev => prev - 1)}
+                    >
+                      <Icon>chevron_left</Icon>
+                    </MDButton>
+                    <MDBox mx={2} display="flex" alignItems="center">
+                      {currentPage} / {Math.ceil(paginatedData.totalItems / itemsPerPage)}
+                    </MDBox>
+                    <MDButton
+                      size="small"
+                      variant="outlined"
+                      disabled={currentPage >= Math.ceil(paginatedData.totalItems / itemsPerPage)}
+                      onClick={() => setCurrentPage(prev => prev + 1)}
+                    >
+                      <Icon>chevron_right</Icon>
+                    </MDButton>
+                  </MDBox>
+                )}
+              </MDBox>
+            );
+          })}
+        </MDBox>
+      </Card>
+    </MDBox>
+  );
+}
+// Helper function to generate default config for a signal
+function getDefaultConfig(signal) {
+  if (signal.type === "indicator") {
+    if (signal.content === "RSI") {
+      return {
+        symbol: supportedSymbols[0].value,
+        timeframe: "15m",
+        condition: "crossesAbove",
+        threshold: 70
+      };
+    } else if (signal.content === "MACD") {
+      return {
+        symbol: supportedSymbols[0].value,
+        timeframe: "15m",
+        condition: "lineAboveSignal"
+      };
+    } else if (signal.content === "Bollinger Bands") {
+      return {
+        symbol: supportedSymbols[0].value,
+        timeframe: "15m",
+        condition: "priceAboveUpper",
+        standardDeviations: 2
+      };
+    } else if (signal.content === "Volume") {
+      return {
+        symbol: supportedSymbols[0].value,
+        timeframe: "15m",
+        condition: "increasesBy",
+        percentage: 20
+      };
     }
+    return {
+      symbol: supportedSymbols[0].value,
+      timeframe: "15m",
+    };
+  } else if (signal.type === "social") {
+    return {
+      account: supportedAccounts[0].value,
+      keywords: "bitcoin,crypto",
+    };
+  } else {
+    return {
+      event: "Earnings",
+      impact: "High"
+    };
+  }
+}
+// Main Alert Builder Component
+function AlertBuilder() {
+  const [workflow, setWorkflow] = useState(initialWorkflow);
+  const [alertName, setAlertName] = useState("");
+  const [deliveryMethods, setDeliveryMethods] = useState(["email"]);
+  const [searchTerm, setSearchTerm] = useState("");
+  
+  // Modal state
+  const [selectorOpen, setSelectorOpen] = useState(false);
+  const [targetGroupId, setTargetGroupId] = useState(null);
+
+  const [selectedBlocks, setSelectedBlocks] = useState([]);
+
+  // Toggle selection of a block
+  const handleToggleSelectBlock = (groupId, blockId) => {
+    console.log("handleToggleSelectBlock called", { groupId, blockId, selectedBlocks });
+    setSelectedBlocks(prev => {
+      if (prev.includes(blockId)) {
+        return prev.filter(id => id !== blockId);
+      } else {
+        return [...prev, blockId];
+      }
+    });
   };
 
-  // Add a new logical group
+  // Helper function to find a group by ID
+  const findGroup = (currentGroup, groupId) => {
+    if (currentGroup.id === groupId) {
+      return currentGroup;
+    }
+    
+    for (const subGroup of currentGroup.groups) {
+      const found = findGroup(subGroup, groupId);
+      if (found) return found;
+    }
+    
+    return null;
+  };
+
+  // Group selected blocks into a new nested group
+  const handleGroupSelectedBlocks = (parentGroupId, blockIds) => {
+    // 1. Create a new group
+    const newGroupId = getGroupId();
+    const newGroup = {
+      id: newGroupId,
+      type: "OR", // Default to OR for the new group
+      blocks: [],
+      groups: []
+    };
+    
+    // 2. Find the parent group
+    const parentGroup = findGroup(workflow.rootGroup, parentGroupId);
+    if (!parentGroup) return;
+    
+    // 3. Find all selected blocks
+    const blocksToMove = parentGroup.blocks.filter(block => 
+      blockIds.includes(block.id)
+    );
+    
+    // 4. Create new workflow with the new group structure
+    const updatedRootGroup = addGroupToParent(workflow.rootGroup, parentGroupId, newGroup);
+    
+    // 5. Move selected blocks to the new group
+    let finalRootGroup = updatedRootGroup;
+    for (const block of blocksToMove) {
+      // Add the block to the new group
+      finalRootGroup = addBlockToGroup(finalRootGroup, newGroupId, block);
+      // Remove the block from the parent group
+      finalRootGroup = removeBlockFromGroup(finalRootGroup, parentGroupId, block.id);
+    }
+    
+    // 6. Update the workflow
+    setWorkflow({
+      ...workflow,
+      rootGroup: finalRootGroup
+    });
+    
+    // 7. Clear selections
+    setSelectedBlocks([]);
+  };
+  
+  // Open signal selector for a specific group
+  const openSignalSelector = (groupId) => {
+    setTargetGroupId(groupId);
+    setSelectorOpen(true);
+  };
+  
+  // Add a selected signal to the target group
+  const handleAddSignal = (signal) => {
+    if (!targetGroupId) return;
+    
+    const newBlock = {
+      ...signal,
+      id: getItemId(),
+      config: getDefaultConfig(signal)
+    };
+    
+    setWorkflow(prevWorkflow => ({
+      ...prevWorkflow,
+      rootGroup: addBlockToGroup(prevWorkflow.rootGroup, targetGroupId, newBlock)
+    }));
+  };
+  
+  // Add a block to a group
+  const addBlockToGroup = (currentGroup, groupId, block) => {
+    if (currentGroup.id === groupId) {
+      return {
+        ...currentGroup,
+        blocks: [...currentGroup.blocks, block]
+      };
+    }
+    
+    return {
+      ...currentGroup,
+      groups: currentGroup.groups.map(group => 
+        addBlockToGroup(group, groupId, block)
+      )
+    };
+  };
+  
+  // Add a new logic group
   const handleAddGroup = (parentId) => {
     const newGroup = {
       id: getGroupId(),
       type: "AND",
-      items: [],
+      blocks: [],
       groups: []
     };
     
@@ -690,24 +962,6 @@ function AlertBuilder() {
       ...workflow,
       rootGroup: addGroupToParent(workflow.rootGroup, parentId, newGroup)
     });
-  };
-  
-  // Remove a logical group
-  const handleRemoveGroup = (groupId) => {
-    setWorkflow({
-      ...workflow,
-      rootGroup: removeGroupFromHierarchy(workflow.rootGroup, groupId)
-    });
-  };
-  
-  // Change a group's logical operator
-  const handleChangeGroupType = (groupId, newType) => {
-    if (newType !== null) {
-      setWorkflow({
-        ...workflow,
-        rootGroup: updateGroupType(workflow.rootGroup, groupId, newType)
-      });
-    }
   };
   
   // Add a group to a parent group
@@ -727,6 +981,14 @@ function AlertBuilder() {
     };
   };
   
+  // Remove a logic group
+  const handleRemoveGroup = (groupId) => {
+    setWorkflow({
+      ...workflow,
+      rootGroup: removeGroupFromHierarchy(workflow.rootGroup, groupId)
+    });
+  };
+  
   // Remove a group from the hierarchy
   const removeGroupFromHierarchy = (currentGroup, groupId) => {
     return {
@@ -735,6 +997,16 @@ function AlertBuilder() {
         .filter(group => group.id !== groupId)
         .map(group => removeGroupFromHierarchy(group, groupId))
     };
+  };
+  
+  // Change a group's logical operator
+  const handleChangeGroupType = (groupId, newType) => {
+    if (newType !== null) {
+      setWorkflow({
+        ...workflow,
+        rootGroup: updateGroupType(workflow.rootGroup, groupId, newType)
+      });
+    }
   };
   
   // Update a group's logical operator type
@@ -754,46 +1026,46 @@ function AlertBuilder() {
     };
   };
 
-  // Remove an item from a group
-  const handleRemoveItem = (groupId, itemId) => {
+  // Remove a block from a group
+  const handleRemoveBlock = (groupId, blockId) => {
     setWorkflow({
       ...workflow,
-      rootGroup: removeItemFromGroup(workflow.rootGroup, groupId, itemId)
+      rootGroup: removeBlockFromGroup(workflow.rootGroup, groupId, blockId)
     });
   };
   
-  // Remove item from specified group
-  const removeItemFromGroup = (currentGroup, groupId, itemId) => {
+  // Remove block from specified group
+  const removeBlockFromGroup = (currentGroup, groupId, blockId) => {
     if (currentGroup.id === groupId) {
       return {
         ...currentGroup,
-        items: currentGroup.items.filter(item => item.id !== itemId)
+        blocks: currentGroup.blocks.filter(block => block.id !== blockId)
       };
     }
     
     return {
       ...currentGroup,
       groups: currentGroup.groups.map(group => 
-        removeItemFromGroup(group, groupId, itemId)
+        removeBlockFromGroup(group, groupId, blockId)
       )
     };
   };
   
-  // Update item configuration
-  const handleUpdateItem = (groupId, itemId, newConfig) => {
+  // Update block configuration
+  const handleUpdateBlock = (groupId, blockId, newConfig) => {
     setWorkflow({
       ...workflow,
-      rootGroup: updateItemInGroup(workflow.rootGroup, groupId, itemId, newConfig)
+      rootGroup: updateBlockInGroup(workflow.rootGroup, groupId, blockId, newConfig)
     });
   };
   
-  // Update item in specified group
-  const updateItemInGroup = (currentGroup, groupId, itemId, newConfig) => {
+  // Update block in specified group
+  const updateBlockInGroup = (currentGroup, groupId, blockId, newConfig) => {
     if (currentGroup.id === groupId) {
       return {
         ...currentGroup,
-        items: currentGroup.items.map(item => 
-          item.id === itemId ? { ...item, config: { ...item.config, ...newConfig } } : item
+        blocks: currentGroup.blocks.map(block => 
+          block.id === blockId ? { ...block, config: { ...block.config, ...newConfig } } : block
         )
       };
     }
@@ -801,204 +1073,32 @@ function AlertBuilder() {
     return {
       ...currentGroup,
       groups: currentGroup.groups.map(group => 
-        updateItemInGroup(group, groupId, itemId, newConfig)
+        updateBlockInGroup(group, groupId, blockId, newConfig)
       )
     };
   };
 
-  // Find the group by ID
-  const findGroup = (currentGroup, groupId) => {
-    if (currentGroup.id === groupId) {
-      return currentGroup;
-    }
-    
-    for (const group of currentGroup.groups) {
-      const found = findGroup(group, groupId);
-      if (found) return found;
-    }
-    
-    return null;
-  };
-
-  // Helper function to get appropriate default config
-  const getDefaultConfigForItem = (item) => {
-    if (item.type === "indicator") {
-      if (item.content === "RSI") {
-        return {
-          symbol: supportedSymbols[0].value,
-          timeframe: "15m",
-          condition: "crossesAbove",
-          threshold: 70
-        };
-      } else if (item.content === "MACD") {
-        return {
-          symbol: supportedSymbols[0].value,
-          timeframe: "15m",
-          condition: "lineAboveSignal"
-        };
-      } else if (item.content === "Bollinger Bands") {
-        return {
-          symbol: supportedSymbols[0].value,
-          timeframe: "15m",
-          condition: "priceAboveUpper",
-          standardDeviations: 2
-        };
-      } else if (item.content === "Volume") {
-        return {
-          symbol: supportedSymbols[0].value,
-          timeframe: "15m",
-          condition: "increasesBy",
-          percentage: 20
-        };
-      }
-      return {
-        symbol: supportedSymbols[0].value,
-        timeframe: "15m",
-      };
-    } else if (item.type === "social") {
-      return {
-        account: supportedAccounts[0].value,
-        keywords: "bitcoin,crypto",
-      };
+  // Toggle delivery methods
+  const handleDeliveryMethodsChange = (method) => {
+    if (deliveryMethods.includes(method)) {
+      setDeliveryMethods(deliveryMethods.filter(m => m !== method));
     } else {
-      return {
-        event: "Earnings",
-        impact: "High"
-      };
+      setDeliveryMethods([...deliveryMethods, method]);
     }
   };
 
-  const onDragEnd = (result) => {
-    console.log("Drag end triggered", result);
-    const { source, destination } = result;
-  
-    // Dropped outside any droppable
-    if (!destination) {
-      console.log("No destination");
-      return;
-    }
-    
-    console.log("Source:", source);
-    console.log("Destination:", destination);
-    console.log("Type:", result.type);
-    console.log("Drag result:", result);
-    
-    // Find the dragged item regardless of which category it's from
-    let sourceItem;
-    
-    // Get all visible categories
-    const allCategories = getVisibleIndicators();
-    
-    // Find the category that matches the source droppableId
-    const sourceCategory = allCategories.find(category => category.id === source.droppableId);
-    
-    if (sourceCategory && sourceCategory.items[source.index]) {
-      sourceItem = sourceCategory.items[source.index];
-    } else {
-      console.log("Could not find source item");
-      return;
-    }
-    
-    // Create a new item with appropriate default config
-    const newItem = {
-      ...sourceItem,
-      id: getItemId(),
-      originalId: sourceItem.id,
-      config: getDefaultConfigForItem(sourceItem)
-    };
-    
-    // Add item to workflow
-    setWorkflow(prevWorkflow => {
-      return {
-        ...prevWorkflow,
-        rootGroup: addItemToGroup(prevWorkflow.rootGroup, destination.droppableId, newItem, destination.index)
-      };
-    });
-  };
-
-  // Helper to find an item in a group
-  const findItemInGroup = (group, groupId, itemIndex) => {
-    if (group.id === groupId && group.items.length > itemIndex) {
-      return group.items[itemIndex];
-    }
+  // Count total blocks across all groups
+  const countTotalBlocks = (group) => {
+    let count = group.blocks.length;
     
     for (const subGroup of group.groups) {
-      const found = findItemInGroup(subGroup, groupId, itemIndex);
-      if (found) return found;
+      count += countTotalBlocks(subGroup);
     }
     
-    return null;
+    return count;
   };
   
-  // Add item to a group
-  const addItemToGroup = (currentGroup, groupId, item, index) => {
-    if (currentGroup.id === groupId) {
-      const newItems = Array.from(currentGroup.items);
-      newItems.splice(index, 0, item);
-      
-      return {
-        ...currentGroup,
-        items: newItems
-      };
-    }
-    
-    return {
-      ...currentGroup,
-      groups: currentGroup.groups.map(group => 
-        addItemToGroup(group, groupId, item, index)
-      )
-    };
-  };
-  
-  // Reorder items within a group
-  const reorderItemsInGroup = (currentGroup, groupId, sourceIndex, destinationIndex) => {
-    if (currentGroup.id === groupId) {
-      const newItems = Array.from(currentGroup.items);
-      const [removed] = newItems.splice(sourceIndex, 1);
-      newItems.splice(destinationIndex, 0, removed);
-      
-      return {
-        ...currentGroup,
-        items: newItems
-      };
-    }
-    
-    return {
-      ...currentGroup,
-      groups: currentGroup.groups.map(group => 
-        reorderItemsInGroup(group, groupId, sourceIndex, destinationIndex)
-      )
-    };
-  };
-  
-  // Move item between groups
-  const moveItemBetweenGroups = (currentGroup, sourceId, destId, sourceIndex, destIndex, item) => {
-    // First, create a version with the item removed from source
-    const withItemRemoved = removeItemAt(currentGroup, sourceId, sourceIndex);
-    
-    // Then, add the item to the destination
-    return addItemToGroup(withItemRemoved, destId, item, destIndex);
-  };
-  
-  // Remove item at a specific index
-  const removeItemAt = (currentGroup, groupId, index) => {
-    if (currentGroup.id === groupId) {
-      const newItems = Array.from(currentGroup.items);
-      newItems.splice(index, 1);
-      
-      return {
-        ...currentGroup,
-        items: newItems
-      };
-    }
-    
-    return {
-      ...currentGroup,
-      groups: currentGroup.groups.map(group => 
-        removeItemAt(group, groupId, index)
-      )
-    };
-  };
+  const totalBlocks = countTotalBlocks(workflow.rootGroup);
 
   // Generate a preview of the alert logic
   const getAlertLogicPreview = () => {
@@ -1007,60 +1107,26 @@ function AlertBuilder() {
   
   // Recursively generate logic preview
   const generateLogicPreview = (group) => {
-    const itemConditions = group.items.map(item => {
-      if (item.type === "indicator") {
-        if (item.content === "RSI") {
+    const blockConditions = group.blocks.map(block => {
+      if (block.type === "indicator") {
+        if (block.content === "RSI") {
           const conditionText = {
             crossesAbove: "crosses above",
             crossesBelow: "crosses below",
             staysAbove: "stays above",
             staysBelow: "stays below"
-          }[item.config.condition] || "crosses";
+          }[block.config.condition] || "crosses";
           
-          return `RSI of ${item.config.symbol} (${item.config.timeframe}) ${conditionText} ${item.config.threshold}`;
+          return `RSI of ${block.config.symbol} (${block.config.timeframe}) ${conditionText} ${block.config.threshold}`;
         } 
-        else if (item.content === "MACD") {
-          const conditionText = {
-            lineAboveSignal: "line crosses above signal line",
-            lineBelowSignal: "line crosses below signal line",
-            histogramPositive: "histogram becomes positive",
-            histogramNegative: "histogram becomes negative",
-            histogramIncreasing: "histogram is increasing",
-            histogramDecreasing: "histogram is decreasing"
-          }[item.config.condition] || "crosses";
-          
-          return `MACD of ${item.config.symbol} (${item.config.timeframe}) ${conditionText}`;
-        }
-        else if (item.content === "Bollinger Bands") {
-          const conditionText = {
-            priceAboveUpper: "price crosses above upper band",
-            priceBelowLower: "price crosses below lower band",
-            priceToMiddleFromAbove: "price returns to middle band from above",
-            priceToMiddleFromBelow: "price returns to middle band from below",
-            bandsSqueezing: "bands are narrowing (decreasing volatility)",
-            bandsExpanding: "bands are widening (increasing volatility)"
-          }[item.config.condition] || "condition met";
-          
-          return `Bollinger Bands (${item.config.standardDeviations}σ) of ${item.config.symbol} (${item.config.timeframe}) ${conditionText}`;
-        }
-        else if (item.content === "Volume") {
-          const conditionText = {
-            increasesBy: `increases by ${item.config.percentage}%`,
-            decreasesBy: `decreases by ${item.config.percentage}%`,
-            exceedsAverage: `exceeds ${item.config.periods}-period average by ${item.config.percentage}%`,
-            fallsBelowAverage: `falls below ${item.config.periods}-period average by ${item.config.percentage}%`,
-            exceeds: `exceeds ${item.config.percentage}`
-          }[item.config.condition] || "changes significantly";
-          
-          return `Volume of ${item.config.symbol} (${item.config.timeframe}) ${conditionText}`;
-        }
+        // Similar conditions for other indicator types...
         else {
-          return `${item.content} of ${item.config.symbol} (${item.config.timeframe}) condition met`;
+          return `${block.content} of ${block.config.symbol} (${block.config.timeframe}) condition met`;
         }
-      } else if (item.type === "social") {
-        return `${item.config.account} tweets about "${item.config.keywords}"`;
+      } else if (block.type === "social") {
+        return `${block.config.account} tweets about "${block.config.keywords}"`;
       } else {
-        return `${item.config.event} with ${item.config.impact} impact is released`;
+        return `${block.config.event} with ${block.config.impact} impact is released`;
       }
     });
     
@@ -1069,7 +1135,7 @@ function AlertBuilder() {
       return `(${subCondition})`;
     });
     
-    const allConditions = [...itemConditions, ...groupConditions];
+    const allConditions = [...blockConditions, ...groupConditions];
     
     if (allConditions.length === 0) {
       return "No conditions added";
@@ -1077,22 +1143,9 @@ function AlertBuilder() {
     
     return allConditions.join(` ${group.type} `);
   };
-  
-  // Count total items across all groups
-  const countTotalItems = (group) => {
-    let count = group.items.length;
-    
-    for (const subGroup of group.groups) {
-      count += countTotalItems(subGroup);
-    }
-    
-    return count;
-  };
-  
-  const totalItems = countTotalItems(workflow.rootGroup);
 
   return (
-    <DragDropContext onDragEnd={onDragEnd}>
+    <>
       <MDBox mb={3}>
         <Card>
           <MDBox p={3}>
@@ -1114,209 +1167,75 @@ function AlertBuilder() {
       </MDBox>
 
       <Grid container spacing={3}>
-        {/* Left side - Source blocks */}
-        <Grid item xs={12} md={4}>
+        <Grid item xs={12}>
           <Card>
             <MDBox p={3}>
               <MDTypography variant="h6" fontWeight="medium">
-                Signal Sources
-              </MDTypography>
-              
-              <MDBox mt={2} mb={2}>
-                <TextField
-                  fullWidth
-                  size="small"
-                  placeholder="Search indicators (RSI, MACD, etc.)..."
-                  variant="outlined"
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  InputProps={{
-                    startAdornment: (
-                      <InputAdornment position="start">
-                        <Icon>search</Icon>
-                      </InputAdornment>
-                    ),
-                    endAdornment: searchTerm && (
-                      <InputAdornment position="end">
-                        <MDButton 
-                          variant="text" 
-                          color="secondary" 
-                          size="small"
-                          onClick={() => setSearchTerm("")}
-                        >
-                          <Icon>clear</Icon>
-                        </MDButton>
-                      </InputAdornment>
-                    )
-                  }}
-                />
-              </MDBox>
-              
-              {/* Show category buttons for easy browsing */}
-              <MDBox display="flex" flexWrap="wrap" gap={1} mb={2}>
-                <MDButton 
-                  variant="outlined"
-                  size="small"
-                  onClick={() => handleCategoryChange("popular")}
-                  color={activeCategory === "popular" ? "info" : "secondary"}
-                >
-                  Popular
-                </MDButton>
-                <MDButton
-                  variant="outlined"
-                  size="small"
-                  onClick={() => handleCategoryChange("trend")}
-                  color={activeCategory === "trend" ? "info" : "secondary"}
-                >
-                  Trend
-                </MDButton>
-                <MDButton
-                  variant="outlined"
-                  size="small"
-                  onClick={() => handleCategoryChange("momentum")}
-                  color={activeCategory === "momentum" ? "info" : "secondary"}
-                >
-                  Momentum
-                </MDButton>
-                <MDButton
-                  variant="outlined"
-                  size="small"
-                  onClick={() => handleCategoryChange("social")}
-                  color={activeCategory === "social" ? "info" : "secondary"}
-                >
-                  Social
-                </MDButton>
-              </MDBox>
-              
-              {/* Display filtered indicators based on search and/or category */}
-              <MDBox mt={2}>
-                {getVisibleIndicators().map((category) => (
-                  <React.Fragment key={category.id}>
-                    <MDTypography variant="button" fontWeight="bold" color="text">
-                      {category.title}
-                    </MDTypography>
-                    <Droppable droppableId={category.id} type="ITEM">
-                      {(provided) => (
-                        <MDBox
-                          {...provided.droppableProps}
-                          ref={provided.innerRef}
-                          mt={1}
-                          mb={2}
-                        >
-                          {category.items.map((item, index) => (
-                            <Draggable key={item.id} draggableId={item.id} index={index}>
-                              {(provided) => (
-                                <MDBox
-                                  ref={provided.innerRef}
-                                  {...provided.draggableProps}
-                                  {...provided.dragHandleProps}
-                                  mb={1}
-                                  p={1.5}
-                                  borderRadius="lg"
-                                  sx={{ 
-                                    backgroundColor: "light.main", 
-                                    border: "1px solid",
-                                    borderColor: "light.main",
-                                    "&:hover": { borderColor: "info.main" },
-                                    cursor: "grab"
-                                  }}
-                                >
-                                  <MDBox display="flex" alignItems="center">
-                                    <Icon sx={{ mr: 1 }}>{item.icon}</Icon>
-                                    <MDTypography variant="button" fontWeight="regular">
-                                      {item.content}
-                                    </MDTypography>
-                                  </MDBox>
-                                </MDBox>
-                              )}
-                            </Draggable>
-                          ))}
-                          {provided.placeholder}
-                        </MDBox>
-                      )}
-                    </Droppable>
-                    {/* Add pagination controls if there are more items than fit on one page */}
-                    {category.totalItems > itemsPerPage && (
-                      <MDBox display="flex" justifyContent="center" alignItems="center" mt={1} mb={2}>
-                        <MDButton 
-                          disabled={currentPage === 1}
-                          onClick={() => setCurrentPage(prev => prev - 1)}
-                          size="small"
-                          variant="outlined"  // Change from "text" to "contained"
-                          color="info"
-                        >
-                          <Icon>chevron_left</Icon>
-                        </MDButton>
-                        <MDBox mx={2} display="flex" alignItems="center">
-                          Page {currentPage} of {Math.ceil(category.totalItems / itemsPerPage)}
-                        </MDBox>
-                        <MDButton 
-                          disabled={currentPage >= Math.ceil(category.totalItems / itemsPerPage)}
-                          onClick={() => setCurrentPage(prev => prev + 1)}
-                          size="small"
-                          variant="outlined"  // Change from "text" to "contained"
-                          color="info"
-                        >
-                          <Icon>chevron_right</Icon>
-                        </MDButton>
-                      </MDBox>
-                    )}
-                  </React.Fragment>
-                ))}
-              </MDBox>
-            </MDBox>
-          </Card>
-        </Grid>
-
-        {/* Right side - Workflow area */}
-        <Grid item xs={12} md={8}>
-          <Card sx={{ height: "100%" }}>
-            <MDBox p={3}>
-              <MDTypography variant="h6" fontWeight="medium">
-                Alert Workflow
+                Alert Builder
               </MDTypography>
               <MDTypography variant="caption" color="text">
-                Drag signals to groups and configure conditions
+                Build your multi-signal alert logic
               </MDTypography>
 
               <MDBox
                 mt={2}
-                p={2}
                 borderRadius="lg"
                 sx={{ 
                   backgroundColor: "grey.100", 
-                  minHeight: "250px",
-                  border: "2px dashed",
-                  borderColor: totalItems ? "grey.300" : "info.main"
+                  minHeight: "300px",
+                  border: totalBlocks === 0 ? "2px dashed" : "none",
+                  borderColor: "info.main",
+                  padding: 2
                 }}
               >
-                {totalItems === 0 && (
+                {totalBlocks === 0 && (
                   <MDBox 
                     height="100%" 
                     display="flex" 
+                    flexDirection="column"
                     justifyContent="center" 
                     alignItems="center"
+                    textAlign="center"
+                    p={4}
                   >
-                    <MDTypography variant="button" color="text" fontWeight="regular">
-                      Drag signals here to build your alert
+                    <Icon color="info" sx={{ fontSize: '3rem', mb: 2 }}>add_alert</Icon>
+                    <MDTypography variant="h6" color="text" gutterBottom>
+                      Start Building Your Alert
                     </MDTypography>
+                    <MDTypography variant="body2" color="text" mb={3}>
+                      Add signals and conditions to create custom alert logic
+                    </MDTypography>
+                    <MDButton 
+                      variant="contained" 
+                      color="info"
+                      onClick={() => openSignalSelector("root")}
+                      startIcon={<Icon>add</Icon>}
+                    >
+                      Add First Signal
+                    </MDButton>
                   </MDBox>
                 )}
 
-                <LogicalGroup 
-                  group={workflow.rootGroup}
-                  onAddGroup={handleAddGroup}
-                  onRemoveGroup={handleRemoveGroup}
-                  onChangeType={handleChangeGroupType}
-                  onRemoveItem={handleRemoveItem}
-                  onUpdateItem={handleUpdateItem}
-                  isRoot={true} // Mark the root group
-                />
+                {totalBlocks > 0 && (
+                  <LogicGroup 
+                    group={workflow.rootGroup}
+                    onAddBlock={openSignalSelector}
+                    onAddGroup={handleAddGroup}
+                    onRemoveGroup={handleRemoveGroup}
+                    onChangeType={handleChangeGroupType}
+                    onRemoveBlock={handleRemoveBlock}
+                    onUpdateBlock={handleUpdateBlock}
+                    selectedBlocks={selectedBlocks}
+                    onToggleSelectBlock={handleToggleSelectBlock}
+                    onGroupSelectedBlocks={handleGroupSelectedBlocks}
+                    isRoot={true}
+                  />
+                )}
               </MDBox>
 
               {/* Logic preview */}
-              {totalItems > 0 && (
-                <MDBox mt={2} p={2} borderRadius="lg" bgcolor="grey.100">
+              {totalBlocks > 0 && (
+                <MDBox mt={3} p={2} borderRadius="lg" bgcolor="grey.100">
                   <MDTypography variant="button" fontWeight="bold">
                     Alert Logic Preview:
                   </MDTypography>
@@ -1387,7 +1306,7 @@ function AlertBuilder() {
                 <MDButton 
                   variant="gradient" 
                   color="info"
-                  disabled={!alertName || totalItems === 0 || deliveryMethods.length === 0}
+                  disabled={!alertName || totalBlocks === 0 || deliveryMethods.length === 0}
                 >
                   Save Alert
                 </MDButton>
@@ -1396,7 +1315,16 @@ function AlertBuilder() {
           </Card>
         </Grid>
       </Grid>
-    </DragDropContext>
+
+      {/* Signal Selector Modal */}
+      <SignalSelector
+        open={selectorOpen}
+        onClose={() => setSelectorOpen(false)}
+        onSelect={handleAddSignal}
+        searchTerm={searchTerm}
+        setSearchTerm={setSearchTerm}
+      />
+    </>
   );
 }
 

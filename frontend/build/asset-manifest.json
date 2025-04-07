@@ -1,7 +1,7 @@
 {
   "files": {
     "main.css": "/static/css/main.a2c40fc9.css",
-    "main.js": "/static/js/main.a042bcf2.js",
+    "main.js": "/static/js/main.40144ef1.js",
     "static/media/pattern-tree.svg": "/static/media/pattern-tree.156bb943ac7fd244f10c115d085e085e.svg",
     "static/media/product-11.jpg": "/static/media/product-11.a5600b8de08405e600c3.jpg",
     "static/media/home-decor-3.jpg": "/static/media/home-decor-3.74d13fcbd3c631fc7908.jpg",
@@ -56,10 +56,10 @@
     "static/media/logo-asana.svg": "/static/media/logo-asana.d758f410d82760a61d1eabcb03409de6.svg",
     "index.html": "/index.html",
     "main.a2c40fc9.css.map": "/static/css/main.a2c40fc9.css.map",
-    "main.a042bcf2.js.map": "/static/js/main.a042bcf2.js.map"
+    "main.40144ef1.js.map": "/static/js/main.40144ef1.js.map"
   },
   "entrypoints": [
     "static/css/main.a2c40fc9.css",
-    "static/js/main.a042bcf2.js"
+    "static/js/main.40144ef1.js"
   ]
 }
