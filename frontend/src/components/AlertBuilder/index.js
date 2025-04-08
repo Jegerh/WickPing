@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect  } from "react";
 import { 
   Card, Grid, Icon, Divider, TextField, Select, MenuItem, FormControl, 
   InputLabel, Box, Autocomplete, ToggleButton, ToggleButtonGroup, InputAdornment,
@@ -8,6 +8,8 @@ import {
 import MDBox from "components/MDBox";
 import MDTypography from "components/MDTypography";
 import MDButton from "components/MDButton";
+import IndicatorConfig from "./IndicatorConfig";
+import { getIndicatorCategories, getPopularIndicators, getIndicatorById } from "./indicatorsRegistry";
 
 // Unique ID generator for items
 const getItemId = () => `item-${Math.random().toString(36).substr(2, 9)}`;
@@ -99,6 +101,29 @@ const getBlockIconColor = (type) => {
   }
 };
 
+const getBlockHoverBorderColor = (type) => {
+  switch(type) {
+    case 'indicator': return 'rgba(25, 118, 210, 0.7)';  // Darker blue
+    case 'social': return 'rgba(76, 175, 80, 0.7)';      // Darker green
+    case 'economic': return 'rgba(255, 152, 0, 0.7)';    // Darker orange
+    default: return 'rgba(158, 158, 158, 0.7)';          // Darker gray
+  }
+};
+
+// Add this helper function to darken colors
+function darkenColor(rgba, amount) {
+  // Extract values from rgba string
+  const match = rgba.match(/rgba\((\d+),\s*(\d+),\s*(\d+),\s*([\d.]+)\)/);
+  if (!match) return rgba;
+  
+  const r = Math.max(0, parseInt(match[1]) - amount * 255);
+  const g = Math.max(0, parseInt(match[2]) - amount * 255);
+  const b = Math.max(0, parseInt(match[3]) - amount * 255);
+  const a = parseFloat(match[4]);
+  
+  return `rgba(${r}, ${g}, ${b}, ${a})`;
+}
+
 // Signal Block Component
 function SignalBlock({ 
   block, 
@@ -110,19 +135,32 @@ function SignalBlock({
 }) {
   const [expanded, setExpanded] = useState(expandedByDefault);
 
+  console.log("SignalBlock rendering:", { 
+    blockId: block.id, 
+    type: block.type, 
+    content: block.content, 
+    config: block.config, 
+    expanded 
+  });
+
   return (
     <Paper
       elevation={2}
+      className="signal-block"
+      data-block-id={block.id}
       sx={{
         mb: 2,
         borderRadius: 2,
         position: 'relative',
         borderLeft: `4px solid ${getBlockBorderColor(block.type)}`,
-        transition: 'all 0.2s',
+        transition: 'all 0.2s ease',
         outline: isSelected ? '2px solid rgba(25, 118, 210, 0.7)' : 'none',
         '&:hover': {
-          boxShadow: 3
-        }
+          boxShadow: '0 4px 8px rgba(0,0,0,0.1)',
+          transform: 'translateY(-2px)',
+          borderColor: getBlockHoverBorderColor(block.type)
+        },
+        cursor: 'pointer'
       }}
     >
       {/* Block Header */}
@@ -134,8 +172,12 @@ function SignalBlock({
         sx={{
           backgroundColor: getBlockHeaderColor(block.type),
           borderTopRightRadius: 8,
-          cursor: 'pointer'
+          cursor: 'pointer',
+          '&:hover': {
+            backgroundColor: darkenColor(getBlockHeaderColor(block.type), 0.05)
+          }
         }}
+        onClick={() => setExpanded(!expanded)}
       >
         <MDBox display="flex" alignItems="center" onClick={() => setExpanded(!expanded)}>
           <Icon 
@@ -191,43 +233,15 @@ function SignalBlock({
 
       {/* Block Content - Collapsible */}
       <Collapse in={expanded}>
+        {console.log("Collapse rendering, expanded:", expanded)}
         <MDBox p={2}>
-          {/* Different config options based on signal type */}
+          {/* For indicator blocks, use the dynamic config component */}
           {block.type === "indicator" && (
-            <Grid container spacing={2}>
-              <Grid item xs={12} sm={4}>
-                <FormControl fullWidth size="small">
-                  <Autocomplete
-                    options={supportedSymbols}
-                    getOptionLabel={(option) => option.label || option}
-                    isOptionEqualToValue={(option, value) => option.value === value || option.value === value.value}
-                    value={supportedSymbols.find(s => s.value === block.config.symbol) || null}
-                    onChange={(e, newValue) => onUpdate({ symbol: newValue?.value || "" })}
-                    renderInput={(params) => <TextField {...params} label="Symbol" />}
-                  />
-                </FormControl>
-              </Grid>
-              <Grid item xs={12} sm={4}>
-                <FormControl fullWidth size="small">
-                  <InputLabel>Timeframe</InputLabel>
-                  <Select
-                    value={block.config.timeframe}
-                    label="Timeframe"
-                    onChange={(e) => onUpdate({ timeframe: e.target.value })}
-                  >
-                    <MenuItem value="1m">1 minute</MenuItem>
-                    <MenuItem value="5m">5 minutes</MenuItem>
-                    <MenuItem value="15m">15 minutes</MenuItem>
-                    <MenuItem value="1h">1 hour</MenuItem>
-                    <MenuItem value="4h">4 hours</MenuItem>
-                    <MenuItem value="1d">1 day</MenuItem>
-                  </Select>
-                </FormControl>
-              </Grid>
-              
-              {/* Indicator-specific configs same as before */}
-              {renderIndicatorSpecificControls(block, onUpdate)}
-            </Grid>
+            <IndicatorConfig 
+              indicator={block.content}
+              config={block.config}
+              onUpdate={onUpdate}
+            />
           )}
 
           {block.type === "social" && (
@@ -439,6 +453,7 @@ function LogicGroup({
   level = 0,
   isRoot = false 
 }) {
+  const [expanded, setExpanded] = useState(true); // Start expanded
   // Function to get the connector line style
   const getConnectorStyle = (index, total) => ({
     position: 'absolute',
@@ -458,19 +473,47 @@ function LogicGroup({
       p={2} 
       mb={2}
       borderRadius={2}
-      sx={{ /* same styles */ }}
+      sx={{ 
+        backgroundColor: level === 0 
+          ? "transparent" 
+          : level === 1 
+            ? "rgba(224, 242, 254, 0.6)" // Light blue for first level
+            : "rgba(209, 233, 252, 0.8)", // Slightly darker blue for deeper nesting
+        border: level === 0 
+          ? "none" 
+          : `1px solid ${level === 1 ? "rgba(25, 118, 210, 0.3)" : "rgba(25, 118, 210, 0.5)"}`,
+        boxShadow: level > 0 ? '0 2px 5px rgba(0,0,0,0.05)' : 'none',
+        // Add a left border that gets thicker with nesting
+        borderLeft: level > 0 ? `${Math.min(level + 2, 5)}px solid rgba(25, 118, 210, ${0.3 + (level * 0.1)})` : 'none'
+      }}
     >
       {/* Logic Operator Toggle */}
       <MDBox 
         display="flex" 
         justifyContent="space-between" 
         alignItems="center" 
-        mb={3}
+        mb={expanded ? 3 : 0}
         bgcolor={level === 0 ? "rgba(0,0,0,0.03)" : "rgba(214, 236, 251, 0.8)"}
         p={1.5}
         borderRadius={2}
+        sx={{
+          cursor: 'pointer',
+          '&:hover': {
+            backgroundColor: level === 0 ? "rgba(0,0,0,0.05)" : "rgba(200, 229, 248, 0.8)",
+          }
+        }}
       >
-        <MDBox>
+        <MDBox display="flex" alignItems="center">
+          <IconButton 
+            size="small" 
+            onClick={(e) => {
+              e.stopPropagation();
+              setExpanded(!expanded);
+            }}
+            sx={{ mr: 1 }}
+          >
+            <Icon>{expanded ? 'expand_more' : 'chevron_right'}</Icon>
+          </IconButton>
           <MDTypography variant="button" fontWeight="medium" color="text" mr={2}>
             Logic:
           </MDTypography>
@@ -482,9 +525,16 @@ function LogicGroup({
             color="primary"
             sx={{
               bgcolor: "white",
+              '& .MuiToggleButton-root': {
+                border: '1px solid rgba(142, 192, 241, 0.3)',
+              },
               '& .MuiToggleButton-root.Mui-selected': {
-                backgroundColor: 'info.main',
-                color: 'white'
+                backgroundColor: 'rgba(142, 192, 241, 0.7)', // Lighter blue
+                color: 'white',
+                fontWeight: 'bold',
+                '&:hover': {
+                  backgroundColor: 'rgba(142, 192, 241, 0.8)',
+                }
               }
             }}
           >
@@ -501,65 +551,82 @@ function LogicGroup({
           <IconButton 
             color="error" 
             size="small"
-            onClick={() => onRemoveGroup(group.id)}
+            onClick={(e) => {
+              e.stopPropagation();
+              onRemoveGroup(group.id);
+            }}
           >
             <Icon>delete</Icon>
           </IconButton>
         )}
       </MDBox>
       {/* Blocks Container with Connector Lines */}
-      <MDBox position="relative" ml={4}>
-        {group.blocks.map((block, index) => (
-          <MDBox key={block.id} position="relative">
-            {/* Visual connector line */}
-            {index > 0 && (
-              <Box sx={getConnectorStyle(index, group.blocks.length)} />
+      <Collapse in={expanded}>
+        <MDBox position="relative" ml={4}>
+          {group.blocks.map((block, index) => (
+            <MDBox key={block.id} position="relative">
+              {/* Visual connector line */}
+              {index > 0 && (
+                <Box sx={getConnectorStyle(index, group.blocks.length)} />
+              )}
+              <SignalBlock 
+                block={block} 
+                onRemove={() => onRemoveBlock(group.id, block.id)}
+                onUpdate={(config) => onUpdateBlock(group.id, block.id, config)}
+                isSelected={selectedBlocks.includes(block.id)}
+                onToggleSelect={(blockId) => {
+                  console.log("onToggleSelect called in LogicGroup", {
+                    groupId: group.id,
+                    blockId,
+                    onToggleSelectBlock: onToggleSelectBlock,
+                    isFunction: typeof onToggleSelectBlock === 'function'
+                  });
+                  onToggleSelectBlock(group.id, blockId);
+                }}
+              />
+            </MDBox>
+            
+          ))}
+          
+          {/* Nested groups */}
+          {group.groups.map((subGroup, index) => (
+            <MDBox key={subGroup.id} position="relative">
+              {/* Visual connector line */}
+              {(index > 0 || group.blocks.length > 0) && (
+                <Box sx={getConnectorStyle(
+                  group.blocks.length + index, 
+                  group.blocks.length + group.groups.length
+                )} />
+              )}
+              <LogicGroup
+                group={subGroup}
+                onAddBlock={onAddBlock}
+                onAddGroup={onAddGroup}
+                onRemoveGroup={onRemoveGroup}
+                onChangeType={onChangeType}
+                onRemoveBlock={onRemoveBlock}
+                onUpdateBlock={onUpdateBlock}
+                selectedBlocks={selectedBlocks}
+                onToggleSelectBlock={onToggleSelectBlock}
+                onGroupSelectedBlocks={onGroupSelectedBlocks}
+                level={level + 1}
+                isRoot={false}
+              />
+            </MDBox>
+          ))}
+        </MDBox>
+      </Collapse>
+
+      {!expanded && group.blocks.length + group.groups.length > 0 && (
+        <MDBox mt={1} ml={4}>
+          <MDTypography variant="caption" color="text">
+            {group.blocks.length + group.groups.length} condition{group.blocks.length + group.groups.length > 1 ? 's' : ''} 
+            {group.blocks.length > 0 && (
+              <> ({group.blocks.map(b => b.content).join(', ')})</>
             )}
-            <SignalBlock 
-              block={block} 
-              onRemove={() => onRemoveBlock(group.id, block.id)}
-              onUpdate={(config) => onUpdateBlock(group.id, block.id, config)}
-              isSelected={selectedBlocks.includes(block.id)}
-              onToggleSelect={(blockId) => {
-                console.log("onToggleSelect called in LogicGroup", {
-                  groupId: group.id,
-                  blockId,
-                  onToggleSelectBlock: onToggleSelectBlock,
-                  isFunction: typeof onToggleSelectBlock === 'function'
-                });
-                onToggleSelectBlock(group.id, blockId);
-              }}
-            />
-          </MDBox>
-        ))}
-        
-        {/* Nested groups */}
-        {group.groups.map((subGroup, index) => (
-          <MDBox key={subGroup.id} position="relative">
-            {/* Visual connector line */}
-            {(index > 0 || group.blocks.length > 0) && (
-              <Box sx={getConnectorStyle(
-                group.blocks.length + index, 
-                group.blocks.length + group.groups.length
-              )} />
-            )}
-            <LogicGroup
-              group={subGroup}
-              onAddBlock={onAddBlock}
-              onAddGroup={onAddGroup}
-              onRemoveGroup={onRemoveGroup}
-              onChangeType={onChangeType}
-              onRemoveBlock={onRemoveBlock}
-              onUpdateBlock={onUpdateBlock}
-              selectedBlocks={selectedBlocks}
-              onToggleSelectBlock={onToggleSelectBlock}
-              onGroupSelectedBlocks={onGroupSelectedBlocks}
-              level={level + 1}
-              isRoot={false}
-            />
-          </MDBox>
-        ))}
-      </MDBox>
+          </MDTypography>
+        </MDBox>
+      )}
       
       {/* Group action buttons */}
       <MDBox mt={3} ml={4} display="flex" gap={2}>
@@ -631,11 +698,7 @@ function SignalSelector({ open, onClose, onSelect, searchTerm, setSearchTerm }) 
         return [{
           id: "popularIndicators",
           title: "Popular Indicators",
-          items: [
-            ...signalCategories[0].items.slice(0, 2),
-            ...signalCategories[1].items.slice(0, 1),
-            signalCategories[2].items[0]
-          ]
+          items: getPopularIndicators()
         }];
       case "trend":
       case "momentum":
@@ -829,6 +892,38 @@ function getDefaultConfig(signal) {
     };
   }
 }
+
+const previewStyles = `
+  .preview-item:hover, .preview-group:hover {
+    background-color: rgba(25, 118, 210, 0.1);
+    border-radius: 3px;
+    cursor: pointer;
+  }
+  
+  .highlight {
+    background-color: rgba(25, 118, 210, 0.2) !important;
+    border-radius: 3px;
+    box-shadow: 0 0 0 1px rgba(25, 118, 210, 0.3);
+  }
+  
+  .operator {
+    font-weight: bold;
+    color: #1976d2;
+    padding: 0 4px;
+  }
+
+  @keyframes highlight-pulse {
+    0% { box-shadow: 0 0 0 0 rgba(25, 118, 210, 0.4); }
+    70% { box-shadow: 0 0 0 10px rgba(25, 118, 210, 0); }
+    100% { box-shadow: 0 0 0 0 rgba(25, 118, 210, 0); }
+  }
+
+  .highlight-pulse {
+    animation: highlight-pulse 1s ease-out 1;
+    background-color: rgba(25, 118, 210, 0.1);
+  }
+`;
+
 // Main Alert Builder Component
 function AlertBuilder() {
   const [workflow, setWorkflow] = useState(initialWorkflow);
@@ -841,6 +936,45 @@ function AlertBuilder() {
   const [targetGroupId, setTargetGroupId] = useState(null);
 
   const [selectedBlocks, setSelectedBlocks] = useState([]);
+  const [previewExpanded, setPreviewExpanded] = useState(false);
+  const [previewType, setPreviewType] = useState('simple');
+
+  const getSignalCategories = () => {
+    const categories = [];
+    
+    // Add indicator categories
+    const indicatorCategories = getIndicatorCategories();
+    Object.keys(indicatorCategories).forEach(category => {
+      categories.push({
+        id: `${category}Indicators`,
+        title: `${category.charAt(0).toUpperCase() + category.slice(1)} Indicators`,
+        items: indicatorCategories[category]
+      });
+    });
+    
+    // Add your existing categories for social media and economic data
+    categories.push({
+      id: "socialMedia",
+      title: "Social Media",
+      items: [
+        { id: "twitter", content: "Twitter/X", icon: "tag", type: "social" },
+        { id: "reddit", content: "Reddit", icon: "forum", type: "social" },
+        { id: "stocktwits", content: "StockTwits", icon: "message", type: "social" }
+      ]
+    });
+    
+    categories.push({
+      id: "economicData",
+      title: "Economic Data",
+      items: [
+        { id: "earnings", content: "Earnings Reports", icon: "receipt_long", type: "economic" },
+        { id: "news", content: "News Releases", icon: "newspaper", type: "economic" },
+        { id: "calendar", content: "Economic Calendar", icon: "event", type: "economic" }
+      ]
+    });
+    
+    return categories;
+  };
 
   // Toggle selection of a block
   const handleToggleSelectBlock = (groupId, blockId) => {
@@ -852,6 +986,29 @@ function AlertBuilder() {
         return [...prev, blockId];
       }
     });
+  };
+
+  // Helper function to get the text representation of a condition
+  const getConditionText = (block) => {
+    if (block.type === "indicator") {
+      const indicator = getIndicatorById(block.id.split('-')[0]);
+      if (!indicator) return `${block.content} condition`;
+      
+      const condition = indicator.conditions.find(c => c.value === block.config.condition);
+      const conditionText = condition ? condition.label : "condition met";
+      
+      if (block.content === "RSI" || block.content === "Stochastic") {
+        // For indicators that have threshold values
+        return `${block.content} of ${block.config.symbol} (${block.config.timeframe}) ${conditionText.toLowerCase()} ${block.config.threshold || ""}`;
+      } else {
+        // For indicators without threshold values
+        return `${block.content} of ${block.config.symbol} (${block.config.timeframe}) ${conditionText.toLowerCase()}`;
+      }
+    } else if (block.type === "social") {
+      return `${block.config.account} tweets about "${block.config.keywords}"`;
+    } else {
+      return `${block.config.event} with ${block.config.impact} impact is released`;
+    }
   };
 
   // Helper function to find a group by ID
@@ -1099,53 +1256,129 @@ function AlertBuilder() {
   };
   
   const totalBlocks = countTotalBlocks(workflow.rootGroup);
-
-  // Generate a preview of the alert logic
-  const getAlertLogicPreview = () => {
-    return generateLogicPreview(workflow.rootGroup);
-  };
   
   // Recursively generate logic preview
-  const generateLogicPreview = (group) => {
+  const generateLogicPreview = (group, level = 0) => {
+    // Create indentation based on nesting level
+    const indent = '  '.repeat(level);
+    const nextIndent = '  '.repeat(level + 1);
+    
     const blockConditions = group.blocks.map(block => {
-      if (block.type === "indicator") {
-        if (block.content === "RSI") {
-          const conditionText = {
-            crossesAbove: "crosses above",
-            crossesBelow: "crosses below",
-            staysAbove: "stays above",
-            staysBelow: "stays below"
-          }[block.config.condition] || "crosses";
-          
-          return `RSI of ${block.config.symbol} (${block.config.timeframe}) ${conditionText} ${block.config.threshold}`;
-        } 
-        // Similar conditions for other indicator types...
-        else {
-          return `${block.content} of ${block.config.symbol} (${block.config.timeframe}) condition met`;
-        }
-      } else if (block.type === "social") {
-        return `${block.config.account} tweets about "${block.config.keywords}"`;
-      } else {
-        return `${block.config.event} with ${block.config.impact} impact is released`;
-      }
+      const conditionText = getConditionText(block);
+      return `${nextIndent}<span id="preview-${block.id}" class="preview-item" data-block-id="${block.id}">${conditionText}</span>`;
     });
     
     const groupConditions = group.groups.map(subGroup => {
-      const subCondition = generateLogicPreview(subGroup);
-      return `(${subCondition})`;
+      const subCondition = generateLogicPreview(subGroup, level + 1);
+      return `${nextIndent}<span id="preview-group-${subGroup.id}" class="preview-group" data-group-id="${subGroup.id}">(
+  ${subCondition}
+  ${nextIndent})</span>`;
     });
     
     const allConditions = [...blockConditions, ...groupConditions];
+    if (allConditions.length === 0) return `${nextIndent}No conditions added`;
     
-    if (allConditions.length === 0) {
-      return "No conditions added";
-    }
+    // Join with proper indentation and operators
+    return allConditions.join(`
+  ${nextIndent}<span class="operator operator-${group.type.toLowerCase()}">${group.type}</span>
+  `);
+  };
+  
+  // Main alert logic preview function
+  const getAlertLogicPreview = () => {
+    const preview = generateLogicPreview(workflow.rootGroup);
+    return `<div class="logic-preview-code">${preview}</div>`;
+  };
+
+  // Add mouse events to both the blocks and the preview text
+  useEffect(() => {
+
+    // Add click events to preview spans
+    document.querySelectorAll('.preview-item, .preview-group').forEach(span => {
+      const blockId = span.getAttribute('data-block-id');
+      const groupId = span.getAttribute('data-group-id');
+      
+      span.addEventListener('click', (e) => {
+        e.stopPropagation();
+        
+        if (blockId) {
+          const element = document.querySelector(`.signal-block[data-block-id="${blockId}"]`);
+          if (element) {
+            element.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            element.classList.add('highlight-pulse');
+            setTimeout(() => {
+              element.classList.remove('highlight-pulse');
+            }, 2000);
+          }
+        } else if (groupId) {
+          const element = document.querySelector(`.logic-group[data-group-id="${groupId}"]`);
+          if (element) {
+            element.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            element.classList.add('highlight-pulse');
+            setTimeout(() => {
+              element.classList.remove('highlight-pulse');
+            }, 2000);
+          }
+        }
+      });
+    });
+
+    // Add hover events to blocks
+    document.querySelectorAll('.signal-block').forEach(block => {
+      const blockId = block.getAttribute('data-block-id');
+      block.addEventListener('mouseenter', () => {
+        document.getElementById(`preview-${blockId}`)?.classList.add('highlight');
+      });
+      block.addEventListener('mouseleave', () => {
+        document.getElementById(`preview-${blockId}`)?.classList.remove('highlight');
+      });
+    });
     
-    return allConditions.join(` ${group.type} `);
+    // Add hover events to preview spans
+    document.querySelectorAll('.preview-item, .preview-group').forEach(span => {
+      const blockId = span.getAttribute('data-block-id');
+      const groupId = span.getAttribute('data-group-id');
+      
+      span.addEventListener('mouseenter', () => {
+        if (blockId) {
+          document.querySelector(`.signal-block[data-block-id="${blockId}"]`)?.classList.add('highlight');
+        } else if (groupId) {
+          document.querySelector(`.logic-group[data-group-id="${groupId}"]`)?.classList.add('highlight');
+        }
+      });
+      
+      span.addEventListener('mouseleave', () => {
+        if (blockId) {
+          document.querySelector(`.signal-block[data-block-id="${blockId}"]`)?.classList.remove('highlight');
+        } else if (groupId) {
+          document.querySelector(`.logic-group[data-group-id="${groupId}"]`)?.classList.remove('highlight');
+        }
+      });
+    });
+  }, [workflow, previewExpanded, previewType]);
+
+  const generateSimpleLogicPreview = (group) => {
+    const blockConditions = group.blocks.map(block => {
+      const conditionText = getConditionText(block);
+      return `<span id="preview-simple-${block.id}" class="preview-item" data-block-id="${block.id}">${conditionText}</span>`;
+    });
+    
+    const groupConditions = group.groups.map(subGroup => {
+      const subCondition = generateSimpleLogicPreview(subGroup);
+      return `<span id="preview-group-simple-${subGroup.id}" class="preview-group" data-group-id="${subGroup.id}">
+        (${subCondition})
+      </span>`;
+    });
+    
+    const allConditions = [...blockConditions, ...groupConditions];
+    if (allConditions.length === 0) return "No conditions added";
+    
+    return allConditions.join(` <span class="operator operator-${group.type.toLowerCase()}">${group.type}</span> `);
   };
 
   return (
     <>
+      <style>{previewStyles}</style>
       <MDBox mb={3}>
         <Card>
           <MDBox p={3}>
@@ -1235,13 +1468,94 @@ function AlertBuilder() {
 
               {/* Logic preview */}
               {totalBlocks > 0 && (
-                <MDBox mt={3} p={2} borderRadius="lg" bgcolor="grey.100">
-                  <MDTypography variant="button" fontWeight="bold">
-                    Alert Logic Preview:
-                  </MDTypography>
-                  <MDTypography variant="body2" mt={1} fontWeight="regular">
-                    {getAlertLogicPreview()}
-                  </MDTypography>
+                <MDBox mt={3} p={0} borderRadius="lg" bgcolor="grey.100" overflow="hidden">
+                  <MDBox 
+                    p={2} 
+                    display="flex" 
+                    justifyContent="space-between" 
+                    alignItems="center"
+                    bgcolor="rgba(0,0,0,0.03)"
+                    sx={{ cursor: 'pointer' }}
+                    onClick={() => setPreviewExpanded(!previewExpanded)}
+                  >
+                    <MDBox display="flex" alignItems="center">
+                      <Icon sx={{ mr: 1 }}>{previewExpanded ? 'expand_less' : 'expand_more'}</Icon>
+                      <MDTypography variant="button" fontWeight="bold">
+                        Alert Logic Preview
+                      </MDTypography>
+                    </MDBox>
+                    
+                    {previewExpanded && (
+                      <MDBox>
+                        <ToggleButtonGroup
+                          value={previewType}
+                          exclusive
+                          onChange={(e, newValue) => {
+                            if (newValue) setPreviewType(newValue);
+                          }}
+                          size="small"
+                          onClick={(e) => e.stopPropagation()}
+                        >
+                          <ToggleButton value="simple">
+                            <MDTypography variant="caption">Simple</MDTypography>
+                          </ToggleButton>
+                          <ToggleButton value="detailed">
+                            <MDTypography variant="caption">Detailed</MDTypography>
+                          </ToggleButton>
+                        </ToggleButtonGroup>
+                      </MDBox>
+                    )}
+                  </MDBox>
+                  
+                  <Collapse in={previewExpanded}>
+                    <MDBox 
+                      p={2}
+                      bgcolor={previewType === 'detailed' ? 'rgba(0,0,0,0.02)' : 'transparent'}
+                      sx={{
+                        fontFamily: previewType === 'detailed' ? 'monospace' : 'inherit',
+                        fontSize: previewType === 'detailed' ? '0.85rem' : 'inherit',
+                        overflow: 'auto',
+                        maxHeight: '300px',
+                        whiteSpace: previewType === 'detailed' ? 'pre' : 'normal',
+                        '& .highlight': {
+                          backgroundColor: 'rgba(25, 118, 210, 0.1)',
+                          borderRadius: '3px'
+                        },
+                        '& .operator': {
+                          fontWeight: 'bold',
+                          padding: '0 4px'
+                        },
+                        '& .operator-and': {
+                          color: 'info.main',
+                        },
+                        '& .operator-or': {
+                          color: 'warning.main',
+                        },
+                        '& .preview-item:hover, .preview-group:hover': {
+                          backgroundColor: 'rgba(25, 118, 210, 0.05)',
+                          cursor: 'pointer'
+                        }
+                      }}
+                    >
+                      {previewType === 'simple' ? (
+                        <MDTypography 
+                          variant="body2" 
+                          component="div"
+                          dangerouslySetInnerHTML={{ 
+                            __html: generateSimpleLogicPreview(workflow.rootGroup) 
+                          }}
+                        />
+                      ) : (
+                        <MDBox
+                          component="div"
+                          className="logic-preview-detailed"
+                          dangerouslySetInnerHTML={{ 
+                            __html: getAlertLogicPreview() 
+                          }}
+                        />
+                      )}
+                    </MDBox>
+                  </Collapse>
                 </MDBox>
               )}
 
