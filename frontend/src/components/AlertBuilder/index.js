@@ -9,7 +9,7 @@ import MDBox from "components/MDBox";
 import MDTypography from "components/MDTypography";
 import MDButton from "components/MDButton";
 import IndicatorConfig from "./IndicatorConfig";
-import { getIndicatorCategories, getPopularIndicators, getIndicatorById } from "./indicatorsRegistry";
+import { getIndicatorCategories, getIndicatorCategoriesSync, getPopularIndicatorsSync, getIndicatorById, getIndicatorByIdSync } from "./indicatorsRegistry";
 
 // Unique ID generator for items
 const getItemId = () => `item-${Math.random().toString(36).substr(2, 9)}`;
@@ -133,19 +133,48 @@ function SignalBlock({
   isSelected = false,
   onToggleSelect
 }) {
-  const [expanded, setExpanded] = useState(expandedByDefault);
-
-  console.log("SignalBlock rendering:", { 
-    blockId: block.id, 
-    type: block.type, 
-    content: block.content, 
-    config: block.config, 
-    expanded 
-  });
+  // Use localStorage to persist expanded state if we have an ID
+  const storageKey = `signal-expanded-${block.id}`;
+  const initialExpanded = block.id ? 
+    localStorage.getItem(storageKey) === 'true' || expandedByDefault : 
+    expandedByDefault;
+  
+  const [expanded, setExpanded] = useState(initialExpanded);
+  
+  // Update localStorage when expanded state changes
+  useEffect(() => {
+    if (block.id) {
+      localStorage.setItem(storageKey, expanded.toString());
+    }
+  }, [expanded, block.id, storageKey]);
+  
+  // Generate a summary of the block configuration
+  const getConfigSummary = () => {
+    if (!block.config) return '';
+    
+    const parts = [];
+    if (block.config.symbol) parts.push(block.config.symbol);
+    if (block.config.timeframe) parts.push(block.config.timeframe);
+    
+    // Add condition-specific parameters
+    if (block.type === 'indicator') {
+      const indicator = getIndicatorByIdSync(block.content);
+      if (indicator) {
+        const condition = indicator.conditions?.find(c => c.value === block.config.condition);
+        if (condition?.label) parts.push(condition.label);
+        
+        if (condition?.requiresThreshold && block.config.threshold) {
+          parts.push(`${block.config.threshold}`);
+        }
+      }
+    }
+    
+    return parts.join(' • ');
+  };
 
   return (
     <Paper
-      elevation={2}
+      elevation={2} // Keep the default elevation
       className="signal-block"
       data-block-id={block.id}
       sx={{
@@ -156,8 +185,8 @@ function SignalBlock({
         transition: 'all 0.2s ease',
         outline: isSelected ? '2px solid rgba(25, 118, 210, 0.7)' : 'none',
         '&:hover': {
-          boxShadow: '0 4px 8px rgba(0,0,0,0.1)',
-          transform: 'translateY(-2px)',
+          boxShadow: '0 2px 4px rgba(0,0,0,0.1)', // Reduced shadow on hover
+          transform: 'translateY(-1px)', // Subtler lift on hover
           borderColor: getBlockHoverBorderColor(block.type)
         },
         cursor: 'pointer'
@@ -179,7 +208,7 @@ function SignalBlock({
         }}
         onClick={() => setExpanded(!expanded)}
       >
-        <MDBox display="flex" alignItems="center" onClick={() => setExpanded(!expanded)}>
+        <MDBox display="flex" alignItems="center">
           <Icon 
             sx={{ 
               mr: 1,
@@ -189,35 +218,46 @@ function SignalBlock({
           >
             {block.icon}
           </Icon>
-          <MDTypography variant="button" fontWeight="medium">
-            {block.content}
-          </MDTypography>
+          <MDBox>
+            <MDTypography variant="button" fontWeight="medium">
+              {block.content}
+            </MDTypography>
+            
+            {/* Show configuration summary when collapsed */}
+            {!expanded && (
+              <MDTypography variant="caption" color="text" sx={{ display: 'block', mt: 0.5 }}>
+                {getConfigSummary()}
+              </MDTypography>
+            )}
+          </MDBox>
         </MDBox>
-        <MDBox>
+        <MDBox display="flex" alignItems="center">
           <IconButton
             size="small"
             onClick={(e) => {
               e.stopPropagation();
-              console.log("Checkbox clicked", {
-                blockId: block.id,
-                onToggleSelect: onToggleSelect,
-                isFunction: typeof onToggleSelect === 'function'
-              });
               onToggleSelect(block.id);
             }}
             color={isSelected ? "primary" : "default"}
           >
             <Icon>{isSelected ? 'check_box' : 'check_box_outline_blank'}</Icon>
           </IconButton>
+          
+          {/* Make expand icon more prominent */}
           <IconButton
             size="small"
             onClick={(e) => {
               e.stopPropagation();
               setExpanded(!expanded);
             }}
+            sx={{
+              transition: 'transform 0.2s',
+              transform: expanded ? 'rotate(180deg)' : 'rotate(0deg)',
+            }}
           >
             <Icon>{expanded ? 'expand_less' : 'expand_more'}</Icon>
           </IconButton>
+          
           <IconButton
             size="small"
             color="error"
@@ -231,9 +271,17 @@ function SignalBlock({
         </MDBox>
       </MDBox>
 
-      {/* Block Content - Collapsible */}
-      <Collapse in={expanded}>
-        {console.log("Collapse rendering, expanded:", expanded)}
+      {/* Block Content - Collapsible with improved animation */}
+      <Collapse 
+        in={expanded} 
+        timeout={300}
+        sx={{
+          '& .MuiCollapse-wrapperInner': {
+            transition: 'opacity 0.3s',
+            opacity: expanded ? 1 : 0
+          }
+        }}
+      >
         <MDBox p={2}>
           {/* For indicator blocks, use the dynamic config component */}
           {block.type === "indicator" && (
@@ -482,9 +530,10 @@ function LogicGroup({
         border: level === 0 
           ? "none" 
           : `1px solid ${level === 1 ? "rgba(25, 118, 210, 0.3)" : "rgba(25, 118, 210, 0.5)"}`,
-        boxShadow: level > 0 ? '0 2px 5px rgba(0,0,0,0.05)' : 'none',
+        boxShadow: level > 0 ? '0 1px 3px rgba(0,0,0,0.05)' : 'none', // Reduced shadow
         // Add a left border that gets thicker with nesting
-        borderLeft: level > 0 ? `${Math.min(level + 2, 5)}px solid rgba(25, 118, 210, ${0.3 + (level * 0.1)})` : 'none'
+        borderLeft: level > 0 ? `${Math.min(level + 2, 5)}px solid rgba(25, 118, 210, ${0.3 + (level * 0.1)})` : 'none',
+        overflow: 'hidden' // This will prevent child elements from creating overflow
       }}
     >
       {/* Logic Operator Toggle */}
@@ -493,14 +542,15 @@ function LogicGroup({
         justifyContent="space-between" 
         alignItems="center" 
         mb={expanded ? 3 : 0}
-        bgcolor={level === 0 ? "rgba(0,0,0,0.03)" : "rgba(214, 236, 251, 0.8)"}
+        bgcolor={level === 0 ? "rgba(0,0,0,0.02)" : "rgba(214, 236, 251, 0.5)"}
         p={1.5}
         borderRadius={2}
         sx={{
           cursor: 'pointer',
           '&:hover': {
-            backgroundColor: level === 0 ? "rgba(0,0,0,0.05)" : "rgba(200, 229, 248, 0.8)",
-          }
+            backgroundColor: level === 0 ? "rgba(0,0,0,0.04)" : "rgba(200, 229, 248, 0.5)",
+          },
+          border: level > 0 ? '1px solid rgba(25, 118, 210, 0.1)' : 'none' // Subtle border for nested groups
         }}
       >
         <MDBox display="flex" alignItems="center">
@@ -562,7 +612,20 @@ function LogicGroup({
       </MDBox>
       {/* Blocks Container with Connector Lines */}
       <Collapse in={expanded}>
-        <MDBox position="relative" ml={4}>
+        <MDBox 
+          position="relative" 
+          ml={4}
+          sx={{ 
+            '& .signal-block': {
+              // Make signal blocks inside groups have softer appearance
+              boxShadow: 'none',
+              borderWidth: '1px',
+              borderStyle: 'solid',
+              borderColor: 'rgba(0,0,0,0.08)',
+              borderLeftWidth: '4px',  // Keep the left indicator border
+            }
+          }}
+        >
           {group.blocks.map((block, index) => (
             <MDBox key={block.id} position="relative">
               {/* Visual connector line */}
@@ -684,30 +747,73 @@ function SignalSelector({ open, onClose, onSelect, searchTerm, setSearchTerm }) 
 
   // Filter signals based on search and category
   const getFilteredSignals = () => {
+    // Get all indicators categorized by their type
+    const categorizedIndicators = getIndicatorCategoriesSync();
+    
     if (searchTerm) {
-      return signalCategories.map(category => ({
-        ...category,
-        items: category.items.filter(item => 
+      // Filter all indicators across categories by search term
+      let results = [];
+      Object.keys(categorizedIndicators).forEach(category => {
+        const matchingIndicators = categorizedIndicators[category].filter(item => 
           item.content.toLowerCase().includes(searchTerm.toLowerCase())
-        )
-      })).filter(category => category.items.length > 0);
+        );
+        
+        if (matchingIndicators.length > 0) {
+          results.push({
+            id: category,
+            title: category.charAt(0).toUpperCase() + category.slice(1) + " Indicators",
+            items: matchingIndicators
+          });
+        }
+      });
+      return results;
     }
     
+    // Return indicators for specific category or popular list
     switch (activeCategory) {
       case "popular":
         return [{
           id: "popularIndicators",
           title: "Popular Indicators",
-          items: getPopularIndicators()
+          items: getPopularIndicatorsSync()
         }];
       case "trend":
+        return categorizedIndicators.trend ? [{
+          id: "trendIndicators",
+          title: "Trend Indicators",
+          items: categorizedIndicators.trend
+        }] : [];
       case "momentum":
+        return categorizedIndicators.momentum ? [{
+          id: "momentumIndicators",
+          title: "Momentum Indicators",
+          items: categorizedIndicators.momentum
+        }] : [];
       case "social":
-        return signalCategories.filter(cat => 
-          cat.id.toLowerCase().includes(activeCategory.toLowerCase())
-        );
+        return [{
+          id: "socialMedia",
+          title: "Social Media",
+          items: signalCategories.find(c => c.id === "socialMedia")?.items || []
+        }];
+      case "volatility":
+        return categorizedIndicators.volatility ? [{
+          id: "volatilityIndicators",
+          title: "Volatility Indicators",
+          items: categorizedIndicators.volatility
+        }] : [];
+      case "volume":
+        return categorizedIndicators.volume ? [{
+          id: "volumeIndicators",
+          title: "Volume Indicators",
+          items: categorizedIndicators.volume
+        }] : [];
       default:
-        return signalCategories;
+        // Default to all categories
+        return Object.keys(categorizedIndicators).map(category => ({
+          id: category,
+          title: category.charAt(0).toUpperCase() + category.slice(1) + " Indicators",
+          items: categorizedIndicators[category]
+        })).concat(signalCategories.filter(cat => cat.id !== "marketIndicators"));
     }
   };
 
@@ -724,20 +830,32 @@ function SignalSelector({ open, onClose, onSelect, searchTerm, setSearchTerm }) 
   return (
     <MDBox 
       position="fixed" 
-      top="50%" 
-      left="50%" 
-      width="90%" 
-      maxWidth="600px"
+      top="0" 
+      left="0"
+      width="100%" 
+      height="100%"
+      display="flex"
+      justifyContent="center"
+      alignItems="center"
       sx={{ 
-        transform: open ? 'translate(-50%, -50%)' : 'translate(-50%, -30%)',
+        backgroundColor: 'rgba(0, 0, 0, 0.5)',  // Add dark overlay
         opacity: open ? 1 : 0,
         pointerEvents: open ? 'all' : 'none',
         transition: 'all 0.3s',
         zIndex: 1000
       }}
     >
-      <Card elevation={4}>
-        <MDBox p={3}>
+      <Card 
+        elevation={4} 
+        sx={{ 
+          width: '90%', 
+          maxWidth: '600px', 
+          maxHeight: '80vh',
+          transform: open ? 'translateY(0)' : 'translateY(-20px)',
+          transition: 'transform 0.3s'
+        }}
+      >
+        <MDBox p={3} sx={{ maxHeight: '80vh', overflow: 'auto' }}>
           <MDBox display="flex" justifyContent="space-between" alignItems="center" mb={2}>
             <MDTypography variant="h6">Select Signal</MDTypography>
             <IconButton onClick={onClose}>
@@ -756,8 +874,9 @@ function SignalSelector({ open, onClose, onSelect, searchTerm, setSearchTerm }) 
               startAdornment: <InputAdornment position="start"><Icon>search</Icon></InputAdornment>
             }}
           />
+          
           <MDBox display="flex" gap={1} mb={3} flexWrap="wrap">
-            {["popular", "trend", "momentum", "social"].map(category => (
+            {["popular", "trend", "momentum", "volatility", "volume", "social"].map(category => (
               <MDButton
                 key={category}
                 variant={activeCategory === category ? "contained" : "outlined"}
@@ -770,76 +889,95 @@ function SignalSelector({ open, onClose, onSelect, searchTerm, setSearchTerm }) 
             ))}
           </MDBox>
           
-          {getFilteredSignals().map(category => {
-            const paginatedData = paginateItems(category.items);
-            
-            return (
-              <MDBox key={category.id} mb={3}>
-                <MDTypography variant="button" color="text" fontWeight="bold">
-                  {category.title}
-                </MDTypography>
-                
-                <Grid container spacing={2} mt={1}>
-                  {paginatedData.items.map(item => (
-                    <Grid item xs={12} sm={6} key={item.id}>
-                      <Paper
-                        elevation={1}
-                        sx={{
-                          p: 2,
-                          borderRadius: 2,
-                          cursor: 'pointer',
-                          borderLeft: `4px solid ${getBlockBorderColor(item.type)}`,
-                          '&:hover': { boxShadow: 3 }
-                        }}
-                        onClick={() => {
-                          onSelect(item);
-                          onClose();
-                        }}
+          {getFilteredSignals().length > 0 ? (
+            getFilteredSignals().map(category => {
+              const paginatedData = paginateItems(category.items);
+              
+              return (
+                <MDBox key={category.id} mb={3}>
+                  <MDTypography variant="button" color="text" fontWeight="bold">
+                    {category.title}
+                  </MDTypography>
+                  
+                  <Grid container spacing={2} mt={1}>
+                    {paginatedData.items.map(item => (
+                      <Grid item xs={12} sm={6} key={item.id}>
+                        <Paper
+                          elevation={1}
+                          sx={{
+                            p: 2,
+                            borderRadius: 2,
+                            cursor: 'pointer',
+                            borderLeft: `4px solid ${getBlockBorderColor(item.type)}`,
+                            '&:hover': { 
+                              boxShadow: 3,
+                              backgroundColor: 'rgba(0,0,0,0.02)'
+                            }
+                          }}
+                          onClick={() => {
+                            onSelect(item);
+                            onClose();
+                          }}
+                        >
+                          <MDBox display="flex" alignItems="center">
+                            <Icon 
+                              sx={{ 
+                                mr: 1,
+                                color: getBlockIconColor(item.type)
+                              }}
+                            >
+                              {item.icon}
+                            </Icon>
+                            <MDTypography variant="button" fontWeight="medium">
+                              {item.content}
+                            </MDTypography>
+                          </MDBox>
+                          {item.description && (
+                            <MDTypography variant="caption" color="text" sx={{ display: 'block', mt: 0.5 }}>
+                              {item.description.length > 60 
+                                ? item.description.substring(0, 60) + '...' 
+                                : item.description}
+                            </MDTypography>
+                          )}
+                        </Paper>
+                      </Grid>
+                    ))}
+                  </Grid>
+                  
+                  {paginatedData.totalItems > itemsPerPage && (
+                    <MDBox display="flex" justifyContent="center" mt={2}>
+                      <MDButton
+                        size="small"
+                        variant="outlined"
+                        disabled={currentPage === 1}
+                        onClick={() => setCurrentPage(prev => prev - 1)}
                       >
-                        <MDBox display="flex" alignItems="center">
-                          <Icon 
-                            sx={{ 
-                              mr: 1,
-                              color: getBlockIconColor(item.type)
-                            }}
-                          >
-                            {item.icon}
-                          </Icon>
-                          <MDTypography variant="button" fontWeight="medium">
-                            {item.content}
-                          </MDTypography>
-                        </MDBox>
-                      </Paper>
-                    </Grid>
-                  ))}
-                </Grid>
-                
-                {paginatedData.totalItems > itemsPerPage && (
-                  <MDBox display="flex" justifyContent="center" mt={2}>
-                    <MDButton
-                      size="small"
-                      variant="outlined"
-                      disabled={currentPage === 1}
-                      onClick={() => setCurrentPage(prev => prev - 1)}
-                    >
-                      <Icon>chevron_left</Icon>
-                    </MDButton>
-                    <MDBox mx={2} display="flex" alignItems="center">
-                      {currentPage} / {Math.ceil(paginatedData.totalItems / itemsPerPage)}
+                        <Icon>chevron_left</Icon>
+                      </MDButton>
+                      <MDBox mx={2} display="flex" alignItems="center">
+                        {currentPage} / {Math.ceil(paginatedData.totalItems / itemsPerPage)}
+                      </MDBox>
+                      <MDButton
+                        size="small"
+                        variant="outlined"
+                        disabled={currentPage >= Math.ceil(paginatedData.totalItems / itemsPerPage)}
+                        onClick={() => setCurrentPage(prev => prev + 1)}
+                      >
+                        <Icon>chevron_right</Icon>
+                      </MDButton>
                     </MDBox>
-                    <MDButton
-                      size="small"
-                      variant="outlined"
-                      disabled={currentPage >= Math.ceil(paginatedData.totalItems / itemsPerPage)}
-                      onClick={() => setCurrentPage(prev => prev + 1)}
-                    >
-                      <Icon>chevron_right</Icon>
-                    </MDButton>
-                  </MDBox>
-                )}
-              </MDBox>
-            );
-          })}
+                  )}
+                </MDBox>
+              );
+            })
+          ) : (
+            <MDBox textAlign="center" py={4}>
+              <Icon color="text" sx={{ fontSize: '3rem', opacity: 0.5, mb: 2 }}>search_off</Icon>
+              <MDTypography variant="body2" color="text">
+                No signals found matching your criteria
+              </MDTypography>
+            </MDBox>
+          )}
         </MDBox>
       </Card>
     </MDBox>
@@ -991,23 +1129,17 @@ function AlertBuilder() {
   // Helper function to get the text representation of a condition
   const getConditionText = (block) => {
     if (block.type === "indicator") {
-      const indicator = getIndicatorById(block.id.split('-')[0]);
+      const indicator = getIndicatorById(block.content);
       if (!indicator) return `${block.content} condition`;
       
       const condition = indicator.conditions.find(c => c.value === block.config.condition);
       const conditionText = condition ? condition.label : "condition met";
       
-      if (block.content === "RSI" || block.content === "Stochastic") {
-        // For indicators that have threshold values
-        return `${block.content} of ${block.config.symbol} (${block.config.timeframe}) ${conditionText.toLowerCase()} ${block.config.threshold || ""}`;
-      } else {
-        // For indicators without threshold values
-        return `${block.content} of ${block.config.symbol} (${block.config.timeframe}) ${conditionText.toLowerCase()}`;
-      }
+      return `${block.content} of ${block.config.symbol || "unknown symbol"} (${block.config.timeframe || "unknown timeframe"}) ${conditionText.toLowerCase()}${block.config.threshold ? " " + block.config.threshold : ""}`;
     } else if (block.type === "social") {
-      return `${block.config.account} tweets about "${block.config.keywords}"`;
+      return `${block.config.account || "Account"} tweets about "${block.config.keywords || "keywords"}"`;
     } else {
-      return `${block.config.event} with ${block.config.impact} impact is released`;
+      return `${block.config.event || "Event"} with ${block.config.impact || "impact"} impact is released`;
     }
   };
 
@@ -1379,29 +1511,24 @@ function AlertBuilder() {
   return (
     <>
       <style>{previewStyles}</style>
-      <MDBox mb={3}>
-        <Card>
-          <MDBox p={3}>
-            <MDTypography variant="h5" fontWeight="medium">
-              Create New Alert
-            </MDTypography>
-            <MDBox mt={2} mb={3}>
-              <TextField
-                fullWidth
-                label="Alert Name"
-                value={alertName}
-                onChange={(e) => setAlertName(e.target.value)}
-                variant="outlined"
-                placeholder="e.g., Bitcoin Price + Trump Tweet Alert"
-              />
-            </MDBox>
-          </MDBox>
-        </Card>
+      <MDBox p={3}>
+        <MDTypography variant="h5" fontWeight="medium">
+          Create New Alert
+        </MDTypography>
+        <MDBox mt={2} mb={3}>
+          <TextField
+            fullWidth
+            label="Alert Name"
+            value={alertName}
+            onChange={(e) => setAlertName(e.target.value)}
+            variant="outlined"
+            placeholder="e.g., Bitcoin Price + Trump Tweet Alert"
+          />
+        </MDBox>
       </MDBox>
 
       <Grid container spacing={3}>
         <Grid item xs={12}>
-          <Card>
             <MDBox p={3}>
               <MDTypography variant="h6" fontWeight="medium">
                 Alert Builder
@@ -1414,11 +1541,12 @@ function AlertBuilder() {
                 mt={2}
                 borderRadius="lg"
                 sx={{ 
-                  backgroundColor: "grey.100", 
+                  backgroundColor: "grey.50", // Lighter gray
                   minHeight: "300px",
                   border: totalBlocks === 0 ? "2px dashed" : "none",
                   borderColor: "info.main",
-                  padding: 2
+                  padding: 2,
+                  boxShadow: 'inset 0 1px 3px rgba(0,0,0,0.05)' // Subtle inset shadow
                 }}
               >
                 {totalBlocks === 0 && (
@@ -1560,8 +1688,7 @@ function AlertBuilder() {
               )}
 
               {/* Alert delivery options */}
-              <MDBox mt={3}>
-                <Card>
+              <MDBox p={3} sx={{ backgroundColor: "white", borderRadius: "lg", boxShadow: "0 2px 12px 0 rgba(0,0,0,0.05)" }}>
                   <MDBox p={2}>
                     <MDTypography variant="button" fontWeight="medium">
                       Alert Delivery (Select multiple)
@@ -1609,7 +1736,6 @@ function AlertBuilder() {
                       </MDButton>
                     </MDBox>
                   </MDBox>
-                </Card>
               </MDBox>
 
               {/* Save button */}
@@ -1626,7 +1752,6 @@ function AlertBuilder() {
                 </MDButton>
               </MDBox>
             </MDBox>
-          </Card>
         </Grid>
       </Grid>
 
