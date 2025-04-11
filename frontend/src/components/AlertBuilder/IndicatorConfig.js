@@ -1,10 +1,9 @@
 import React, { useState, useEffect } from "react";
 import { Grid, TextField, FormControl, InputLabel, Select, MenuItem, Autocomplete } from "@mui/material";
+import MDBox from "components/MDBox";
+import MDTypography from "components/MDTypography";
 import { getSymbols, getTimeframes } from "../../services/dataService";
 import { getIndicatorById } from "./indicatorsRegistry";
-
-// Import the supportedSymbols array
-import { supportedSymbols } from "./index";  // Make sure this path is correct
 
 console.log("Loading file:", "indicatorsConfig.js");
 
@@ -107,9 +106,13 @@ function IndicatorConfig({ indicator, config, onUpdate }) {
       {/* Add threshold field for indicators that require it */}
       {indicatorDef?.conditions?.find(c => c.value === config.condition)?.requiresThreshold && (
         <Grid item xs={12} sm={4}>
+          <MDBox display="flex" alignItems="center" mb={0.5}>
+            <MDTypography variant="caption" fontWeight="medium">
+              Threshold
+            </MDTypography>
+          </MDBox>
           <TextField
             fullWidth
-            label="Threshold"
             type="number"
             value={config.threshold || 70}
             onChange={(e) => onUpdate({ threshold: e.target.value })}
