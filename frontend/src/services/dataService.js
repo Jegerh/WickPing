@@ -12,6 +12,13 @@ const staticSymbols = [
   { value: "XRP/USD", label: "Ripple (XRP/USD)" },
 ];
 
+const staticAccounts = [
+  { value: "@elonmusk", label: "Elon Musk (@elonmusk)", platform: "twitter" },
+  { value: "@michaelsaylor", label: "Michael Saylor (@michaelsaylor)", platform: "twitter" },
+  { value: "@cz_binance", label: "CZ Binance (@cz_binance)", platform: "twitter" },
+  { value: "@VitalikButerin", label: "Vitalik Buterin (@VitalikButerin)", platform: "twitter" },
+];
+
 const staticTimeframes = [
   { value: "1m", label: "1 minute" },
   { value: "5m", label: "5 minutes" },
@@ -237,6 +244,11 @@ const indicatorCategories = {
   support_resistance: "Support & Resistance"
 };
 
+export const getAccounts = async () => {
+  // In the future: return await fetch('/api/accounts').then(res => res.json());
+  return Promise.resolve(staticAccounts);
+};
+
 // Service functions - asynchronous for future API integration
 export const getSymbols = async () => {
   // Future: return await fetch('/api/symbols').then(res => res.json());
@@ -314,6 +326,7 @@ export const getPopularIndicators = async () => {
 // These will help with the transition when you move to async database calls
 export const getSymbolsSync = () => staticSymbols;
 export const getTimeframesSync = () => staticTimeframes;
+export const getAccountsSync = () => staticAccounts;
 
 export const getIndicatorByIdSync = (id) => {
   // First try direct lookup
@@ -329,9 +342,35 @@ export const getIndicatorByIdSync = (id) => {
   ) || null;
 };
 
-export const getDefaultConfig = (indicatorId) => {
-  const indicator = getIndicatorByIdSync(indicatorId);
-  return indicator ? {...indicator.defaultConfig} : {};
+export const getDefaultConfig = (signal) => {
+  // If it's an indicator, use the existing logic
+  if (typeof signal === 'string' || (signal.type === 'indicator')) {
+    const id = typeof signal === 'string' ? signal : signal.content;
+    const indicator = getIndicatorByIdSync(id);
+    if (indicator && indicator.defaultConfig) {
+      return {...indicator.defaultConfig};
+    }
+  }
+  
+  // For social media signals
+  if (signal.type === 'social') {
+    const accounts = getAccountsSync();
+    return {
+      account: accounts.length > 0 ? accounts[0].value : '',
+      keywords: "bitcoin,crypto",
+    };
+  }
+  
+  // For economic data
+  if (signal.type === 'economic') {
+    return {
+      event: "Earnings",
+      impact: "High"
+    };
+  }
+  
+  // Default fallback
+  return {};
 };
 
 export const getIndicatorCategoriesSync = () => {
@@ -346,6 +385,27 @@ export const getIndicatorCategoriesSync = () => {
   
   return categories;
 };
+
+export const signalCategories = [
+  {
+    id: "socialMedia",
+    title: "Social Media",
+    items: [
+      { id: "twitter", content: "Twitter/X", icon: "tag", type: "social" },
+      { id: "reddit", content: "Reddit", icon: "forum", type: "social" },
+      { id: "stocktwits", content: "StockTwits", icon: "message", type: "social" }
+    ]
+  },
+  {
+    id: "economicData",
+    title: "Economic Data",
+    items: [
+      { id: "earnings", content: "Earnings Reports", icon: "receipt_long", type: "economic" },
+      { id: "news", content: "News Releases", icon: "newspaper", type: "economic" },
+      { id: "calendar", content: "Economic Calendar", icon: "event", type: "economic" }
+    ]
+  }
+];
 
 export const getPopularIndicatorsSync = () => {
   return [
