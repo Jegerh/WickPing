@@ -35,6 +35,21 @@ return [
 
     'connections' => [
 
+        'wickping' => [
+            'driver' => 'pgsql',
+            'host' => env('DB_WICKPING_HOST', '127.0.0.1'),
+            'port' => env('DB_WICKPING_PORT', '5432'),
+            'database' => env('DB_WICKPING_DATABASE', 'wickping'),
+            'username' => env('DB_WICKPING_USERNAME', 'wickuser'),
+            'password' => env('DB_WICKPING_PASSWORD', 'your-password'),
+            'charset' => 'utf8',
+            'prefix' => '',
+            'prefix_indexes' => true,
+            'schema' => 'public',
+            'sslmode' => 'prefer',
+        ],
+
+
         'sqlite' => [
             'driver' => 'sqlite',
             'url' => env('DATABASE_URL'),

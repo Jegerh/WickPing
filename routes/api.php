@@ -31,6 +31,20 @@ Route::prefix('v2')->middleware('json.api')->group(function () {
     Route::post('/password-reset', ResetPasswordController::class)->name('password.reset');
 });
 
+Route::middleware('auth:api')->prefix('v2')->group(function () {
+    Route::post('/alerts', [\App\Http\Controllers\Api\V2\AlertController::class, 'store']);
+    Route::get('/alerts', [\App\Http\Controllers\Api\V2\AlertController::class, 'index']);
+    Route::patch('/alerts/{id}', [\App\Http\Controllers\Api\V2\AlertController::class, 'update']);
+    Route::delete('/alerts/{id}', [\App\Http\Controllers\Api\V2\AlertController::class, 'destroy']);
+    Route::post('/alerts/{id}/restore', [\App\Http\Controllers\Api\V2\AlertController::class, 'restore']);
+    Route::delete('/alerts/{id}/force', [\App\Http\Controllers\Api\V2\AlertController::class, 'forceDelete']);
+    Route::get('/alerts/{id}', [\App\Http\Controllers\Api\V2\AlertController::class, 'show']);
+    Route::delete('/alerts/trash/empty', [\App\Http\Controllers\Api\V2\AlertController::class, 'emptyTrash']);
+
+});
+
+
+
 JsonApiRoute::server('v2')->prefix('v2')->resources(function (ResourceRegistrar $server) {
     $server->resource('categories', JsonApiController::class);
     $server->resource('items', JsonApiController::class);

@@ -9,6 +9,11 @@ use Laravel\Passport\RefreshTokenRepository;
 
 class Kernel extends ConsoleKernel
 {
+    
+    protected $commands = [
+        \App\Console\Commands\EvaluateAlerts::class,
+    ];
+    
     /**
      * Define the application's command schedule.
      *
